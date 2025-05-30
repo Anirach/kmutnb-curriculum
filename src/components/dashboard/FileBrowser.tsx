@@ -161,6 +161,14 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           
+          // Handle 401 Unauthorized - token expired
+          if (response.status === 401) {
+            if (onInsufficientScopeError) {
+              await onInsufficientScopeError();
+              return allItems;
+            }
+          }
+          
           if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
             if (onInsufficientScopeError) {
               await onInsufficientScopeError();
@@ -232,6 +240,14 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
+          
+          // Handle 401 Unauthorized - token expired
+          if (response.status === 401) {
+            if (onInsufficientScopeError) {
+              await onInsufficientScopeError();
+              return [];
+            }
+          }
           
           if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
             if (onInsufficientScopeError) {
@@ -678,6 +694,14 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
         if (!response.ok) {
           const errorText = await response.text();
+          
+          // Check for 401 Unauthorized - token expired
+          if (response.status === 401) {
+            if (onInsufficientScopeError) {
+              await onInsufficientScopeError();
+              return;
+            }
+          }
           
           // Check for insufficient scope error
           if (response.status === 403 && errorText.includes('insufficient authentication scopes')) {
