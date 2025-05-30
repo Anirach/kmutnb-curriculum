@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: ["kmutnnb-curriculum.proen.app.ruk-com.cloud"],
   },
   plugins: [
     react(),
