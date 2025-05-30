@@ -1,26 +1,50 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, Folder, FileText, Search, ArrowLeft, Trash2, Download, Edit, RotateCw, Share2, FolderUp, ChevronLeft } from 'lucide-react';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
-import { useUser } from '@/contexts/UserContext';
-import { FileItem, GoogleDriveFile } from './Dashboard';
-import { FolderActions, FolderActionsRef } from './FolderActions';
-import { toast } from '@/hooks/use-toast';
-import { UserRole } from '@/types/user';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { encryptedStorage } from '@/services/encryptedStorage';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Upload,
+  Folder,
+  FileText,
+  Search,
+  ArrowLeft,
+  Trash2,
+  Download,
+  Edit,
+  RotateCw,
+  Share2,
+  FolderUp,
+  ChevronLeft,
+} from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { useUser } from "@/contexts/UserContext";
+import { FileItem, GoogleDriveFile } from "./Dashboard";
+import { FolderActions, FolderActionsRef } from "./FolderActions";
+import { toast } from "@/hooks/use-toast";
+import { UserRole } from "@/types/user";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { encryptedStorage } from "@/services/encryptedStorage";
 
 // Helper function to sort files: folders first, then files, both in ascending alphabetical order
 const sortFiles = (files: FileItem[]): FileItem[] => {
   return files.sort((a, b) => {
     // Folders come first
-    if (a.type === 'folder' && b.type !== 'folder') return -1;
-    if (a.type !== 'folder' && b.type === 'folder') return 1;
-    
+    if (a.type === "folder" && b.type !== "folder") return -1;
+    if (a.type !== "folder" && b.type === "folder") return 1;
+
     // Within the same type, sort alphabetically by name (case-insensitive)
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
@@ -40,13 +64,18 @@ interface FileBrowserProps {
 interface ShareDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onShare: (email: string, role: 'reader' | 'writer') => Promise<void>;
+  onShare: (email: string, role: "reader" | "writer") => Promise<void>;
   folderName: string;
 }
 
-const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, onShare, folderName }) => {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'reader' | 'writer'>('reader');
+const ShareDialog: React.FC<ShareDialogProps> = ({
+  isOpen,
+  onClose,
+  onShare,
+  folderName,
+}) => {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"reader" | "writer">("reader");
   const [isSharing, setIsSharing] = useState(false);
   const { toast } = useToast();
 
@@ -100,15 +129,15 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, onShare, fol
             <Label>สิทธิ์การเข้าถึง</Label>
             <div className="flex space-x-4">
               <Button
-                variant={role === 'reader' ? 'default' : 'outline'}
-                onClick={() => setRole('reader')}
+                variant={role === "reader" ? "default" : "outline"}
+                onClick={() => setRole("reader")}
                 className="flex-1"
               >
                 อ่านอย่างเดียว
               </Button>
               <Button
-                variant={role === 'writer' ? 'default' : 'outline'}
-                onClick={() => setRole('writer')}
+                variant={role === "writer" ? "default" : "outline"}
+                onClick={() => setRole("writer")}
                 className="flex-1"
               >
                 แก้ไขได้
@@ -117,9 +146,11 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, onShare, fol
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>ยกเลิก</Button>
+          <Button variant="outline" onClick={onClose}>
+            ยกเลิก
+          </Button>
           <Button onClick={handleShare} disabled={isSharing}>
-            {isSharing ? 'กำลังแชร์...' : 'แชร์'}
+            {isSharing ? "กำลังแชร์..." : "แชร์"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -127,17 +158,32 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, onShare, fol
   );
 };
 
-export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolders, userRole, accessToken, onInsufficientScopeError, onRefreshRootFolders }: FileBrowserProps) => {
+export const FileBrowser = ({
+  currentPath,
+  onPathChange,
+  onFileSelect,
+  rootFolders,
+  userRole,
+  accessToken,
+  onInsufficientScopeError,
+  onRefreshRootFolders,
+}: FileBrowserProps) => {
   const { hasPermission } = useUser();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const folderActionsRef = useRef<FolderActionsRef>(null);
   const isDriveReadonly = !!rootFolders;
 
-  const [folderNameCache, setFolderNameCache] = useState<Record<string, string>>({});
-  const [loadingFolderNames, setLoadingFolderNames] = useState<Record<string, boolean>>({});
-  const [failedFolderNames, setFailedFolderNames] = useState<Record<string, boolean>>({}); // NEW: track failed fetches
+  const [folderNameCache, setFolderNameCache] = useState<
+    Record<string, string>
+  >({});
+  const [loadingFolderNames, setLoadingFolderNames] = useState<
+    Record<string, boolean>
+  >({});
+  const [failedFolderNames, setFailedFolderNames] = useState<
+    Record<string, boolean>
+  >({}); // NEW: track failed fetches
 
   const [searchResults, setSearchResults] = useState<FileItem[] | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -147,150 +193,202 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<FileItem | null>(null);
 
-  const fetchFolderContents = useCallback(async (folderId: string, token: string, allItems: FileItem[] = []): Promise<FileItem[]> => {
-    let pageToken: string | null = null;
-    let currentFolderItems: FileItem[] = [];
+  const fetchFolderContents = useCallback(
+    async (
+      folderId: string,
+      token: string,
+      allItems: FileItem[] = []
+    ): Promise<FileItem[]> => {
+      let pageToken: string | null = null;
+      let currentFolderItems: FileItem[] = [];
 
-    try {
-      do {
-        const response = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${pageToken ? '&pageToken=' + pageToken : ''}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+      try {
+        do {
+          const response = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
+              pageToken ? "&pageToken=" + pageToken : ""
+            }`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          
-          // Handle 401 Unauthorized - token expired
-          if (response.status === 401) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return allItems;
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+
+            // Handle 401 Unauthorized - token expired
+            if (response.status === 401) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return allItems;
+              }
             }
-          }
-          
-          if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return allItems;
+
+            if (
+              response.status === 403 &&
+              errorData.error?.message?.includes(
+                "insufficient authentication scopes"
+              )
+            ) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return allItems;
+              }
             }
+
+            throw new Error(
+              `Google Drive API error: ${
+                errorData.error?.message || response.statusText
+              }`
+            );
           }
-          
-          throw new Error(`Google Drive API error: ${errorData.error?.message || response.statusText}`);
+
+          const data = await response.json();
+          if (data.files && Array.isArray(data.files)) {
+            const items: FileItem[] = data.files.map(
+              (item: GoogleDriveFile) => ({
+                id: item.id,
+                name: item.name,
+                type:
+                  item.mimeType === "application/vnd.google-apps.folder"
+                    ? "folder"
+                    : "file",
+                path: [], // path is managed at the Dashboard level
+                url: item.webViewLink,
+                downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
+                size: item.size,
+                lastModified: item.modifiedTime
+                  ? new Date(item.modifiedTime).toLocaleDateString()
+                  : undefined,
+                parents: item.parents,
+                mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
+              })
+            );
+            currentFolderItems = [...currentFolderItems, ...items];
+            pageToken = data.nextPageToken || null;
+          } else {
+            pageToken = null;
+          }
+        } while (pageToken);
+
+        // Add current folder items to the total list
+        allItems = [...allItems, ...currentFolderItems];
+
+        // Recursively fetch contents of subfolders
+        for (const item of currentFolderItems) {
+          if (item.type === "folder") {
+            allItems = await fetchFolderContents(item.id, token, allItems);
+          }
         }
 
-        const data = await response.json();
-        if (data.files && Array.isArray(data.files)) {
-          const items: FileItem[] = data.files.map((item: GoogleDriveFile) => ({
-            id: item.id,
-            name: item.name,
-            type: item.mimeType === 'application/vnd.google-apps.folder' ? 'folder' : 'file',
-            path: [], // path is managed at the Dashboard level
-            url: item.webViewLink,
-            downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
-            size: item.size,
-            lastModified: item.modifiedTime ? new Date(item.modifiedTime).toLocaleDateString() : undefined,
-            parents: item.parents,
-            mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
-          }));
-          currentFolderItems = [...currentFolderItems, ...items];
-          pageToken = data.nextPageToken || null;
-        } else {
-          pageToken = null;
-        }
-      } while (pageToken);
-
-      // Add current folder items to the total list
-      allItems = [...allItems, ...currentFolderItems];
-
-      // Recursively fetch contents of subfolders
-      for (const item of currentFolderItems) {
-        if (item.type === 'folder') {
-          allItems = await fetchFolderContents(item.id, token, allItems);
-        }
+        // Sort all items before returning
+        return sortFiles(allItems);
+      } catch (error) {
+        throw error;
       }
-
-      // Sort all items before returning
-      return sortFiles(allItems);
-
-    } catch (error) {
-      throw error;
-    }
-  }, [onInsufficientScopeError]);
+    },
+    [onInsufficientScopeError]
+  );
 
   // ฟังก์ชันใหม่สำหรับดึง Direct Children เท่านั้น
-  const fetchDirectChildren = useCallback(async (folderId: string, token: string, forceRefresh = false): Promise<FileItem[]> => {
-    let allFiles: FileItem[] = [];
-    let pageToken: string | null = null;
+  const fetchDirectChildren = useCallback(
+    async (
+      folderId: string,
+      token: string,
+      forceRefresh = false
+    ): Promise<FileItem[]> => {
+      let allFiles: FileItem[] = [];
+      let pageToken: string | null = null;
 
-    try {
-      do {
-        // Add cache-busting parameter when refreshing
-        const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : '';
-        const response = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${pageToken ? '&pageToken=' + pageToken : ''}${cacheBuster}`,
-          { 
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              // Force no-cache when refreshing
-              ...(forceRefresh && { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' })
-            } 
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          
-          // Handle 401 Unauthorized - token expired
-          if (response.status === 401) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return [];
+      try {
+        do {
+          // Add cache-busting parameter when refreshing
+          const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : "";
+          const response = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
+              pageToken ? "&pageToken=" + pageToken : ""
+            }${cacheBuster}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                // Force no-cache when refreshing
+                ...(forceRefresh && {
+                  "Cache-Control": "no-cache",
+                  Pragma: "no-cache",
+                }),
+              },
             }
-          }
-          
-          if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return [];
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+
+            // Handle 401 Unauthorized - token expired
+            if (response.status === 401) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return [];
+              }
             }
+
+            if (
+              response.status === 403 &&
+              errorData.error?.message?.includes(
+                "insufficient authentication scopes"
+              )
+            ) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return [];
+              }
+            }
+
+            throw new Error(
+              `Google Drive API error: ${
+                errorData.error?.message || response.statusText
+              }`
+            );
           }
-          
-          throw new Error(`Google Drive API error: ${errorData.error?.message || response.statusText}`);
-        }
 
-        const data = await response.json();
-        if (data.files && Array.isArray(data.files)) {
-          const items: FileItem[] = data.files.map((item: GoogleDriveFile) => ({
-            id: item.id,
-            name: item.name,
-            type: item.mimeType === 'application/vnd.google-apps.folder' ? 'folder' : 'file',
-            path: [], // path is managed at the Dashboard level
-            url: item.webViewLink,
-            downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
-            size: item.size,
-            lastModified: item.modifiedTime ? new Date(item.modifiedTime).toLocaleDateString() : undefined,
-            parents: item.parents,
-            mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
-          }));
-          allFiles = [...allFiles, ...items];
-          pageToken = data.nextPageToken || null;
-        } else {
-          pageToken = null;
-        }
-      } while (pageToken);
+          const data = await response.json();
+          if (data.files && Array.isArray(data.files)) {
+            const items: FileItem[] = data.files.map(
+              (item: GoogleDriveFile) => ({
+                id: item.id,
+                name: item.name,
+                type:
+                  item.mimeType === "application/vnd.google-apps.folder"
+                    ? "folder"
+                    : "file",
+                path: [], // path is managed at the Dashboard level
+                url: item.webViewLink,
+                downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
+                size: item.size,
+                lastModified: item.modifiedTime
+                  ? new Date(item.modifiedTime).toLocaleDateString()
+                  : undefined,
+                parents: item.parents,
+                mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
+              })
+            );
+            allFiles = [...allFiles, ...items];
+            pageToken = data.nextPageToken || null;
+          } else {
+            pageToken = null;
+          }
+        } while (pageToken);
 
-      // เรียงลำดับไฟล์ทันทีที่ได้รับข้อมูลทั้งหมด
-      return sortFiles(allFiles);
-    } catch (error) {
-      throw error;
-    }
-  }, [onInsufficientScopeError]);
+        // เรียงลำดับไฟล์ทันทีที่ได้รับข้อมูลทั้งหมด
+        return sortFiles(allFiles);
+      } catch (error) {
+        throw error;
+      }
+    },
+    [onInsufficientScopeError]
+  );
 
   // แก้ไข useEffect สำหรับการโหลดไฟล์
   useEffect(() => {
     const loadFiles = async () => {
-      if (!accessToken || searchQuery !== '') {
+      if (!accessToken || searchQuery !== "") {
         return;
       }
 
@@ -302,7 +400,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       const match = driveUrl?.match(/folders\/([a-zA-Z0-9_-]+)/);
       const rootFolderId = match ? match[1] : null;
-      const targetFolderId = currentPath.length > 0 ? currentPath[currentPath.length - 1] : rootFolderId;
+      const targetFolderId =
+        currentPath.length > 0
+          ? currentPath[currentPath.length - 1]
+          : rootFolderId;
 
       if (!targetFolderId) {
         setFiles([]);
@@ -312,12 +413,20 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       try {
         // Check if this is a refresh trigger (refreshTrigger > 0)
         const isRefresh = refreshTrigger > 0;
-        
+
         if (currentPath.length === 0 && targetFolderId) {
-          const directChildren = await fetchDirectChildren(targetFolderId, accessToken, isRefresh);
+          const directChildren = await fetchDirectChildren(
+            targetFolderId,
+            accessToken,
+            isRefresh
+          );
           setFiles(directChildren); // ไม่ต้องเรียงลำดับอีกเพราะ directChildren ถูกเรียงลำดับแล้วจาก fetchDirectChildren
         } else if (currentPath.length > 0 && targetFolderId) {
-          const directChildren = await fetchDirectChildren(targetFolderId, accessToken, isRefresh);
+          const directChildren = await fetchDirectChildren(
+            targetFolderId,
+            accessToken,
+            isRefresh
+          );
           setFiles(directChildren); // ไม่ต้องเรียงลำดับอีกเพราะ directChildren ถูกเรียงลำดับแล้วจาก fetchDirectChildren
         }
       } catch (error) {
@@ -326,7 +435,15 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     };
 
     loadFiles();
-  }, [currentPath, accessToken, driveUrl, searchQuery, fetchDirectChildren, rootFolders, refreshTrigger]);
+  }, [
+    currentPath,
+    accessToken,
+    driveUrl,
+    searchQuery,
+    fetchDirectChildren,
+    rootFolders,
+    refreshTrigger,
+  ]);
 
   // แยก useEffect สำหรับการค้นหา
   useEffect(() => {
@@ -338,7 +455,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       setLoadingSearch(true);
       try {
-        const filteredResults = files.filter(item =>
+        const filteredResults = files.filter((item) =>
           item.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
         setSearchResults(filteredResults);
@@ -356,13 +473,17 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   useEffect(() => {
     const fetchFolderNames = async () => {
       if (!accessToken || currentPath.length === 0) return;
-      
+
       const newFolderNames: Record<string, string> = {};
       const newLoadingStates: Record<string, boolean> = {};
       const newFailedStates: Record<string, boolean> = {}; // NEW
-      
+
       for (const folderId of currentPath) {
-        if (!folderNameCache[folderId] && !loadingFolderNames[folderId] && !failedFolderNames[folderId]) {
+        if (
+          !folderNameCache[folderId] &&
+          !loadingFolderNames[folderId] &&
+          !failedFolderNames[folderId]
+        ) {
           newLoadingStates[folderId] = true;
           try {
             const response = await fetch(
@@ -385,18 +506,24 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       }
 
       if (Object.keys(newFolderNames).length > 0) {
-        setFolderNameCache(prev => ({ ...prev, ...newFolderNames }));
+        setFolderNameCache((prev) => ({ ...prev, ...newFolderNames }));
       }
       if (Object.keys(newLoadingStates).length > 0) {
-        setLoadingFolderNames(prev => ({ ...prev, ...newLoadingStates }));
+        setLoadingFolderNames((prev) => ({ ...prev, ...newLoadingStates }));
       }
       if (Object.keys(newFailedStates).length > 0) {
-        setFailedFolderNames(prev => ({ ...prev, ...newFailedStates }));
+        setFailedFolderNames((prev) => ({ ...prev, ...newFailedStates }));
       }
     };
 
     fetchFolderNames();
-  }, [currentPath, accessToken, folderNameCache, loadingFolderNames, failedFolderNames]);
+  }, [
+    currentPath,
+    accessToken,
+    folderNameCache,
+    loadingFolderNames,
+    failedFolderNames,
+  ]);
 
   const handleRefresh = async () => {
     // Provide visual feedback by showing a toast
@@ -404,9 +531,14 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       title: "รีเฟรชไฟล์",
       description: "กำลังโหลดข้อมูลล่าสุดจาก Google Drive...",
     });
-    
+
     // If we're at root level and have a root folder refresh handler, use it
-    if (currentPath.length === 0 && rootFolders && rootFolders.length > 0 && onRefreshRootFolders) {
+    if (
+      currentPath.length === 0 &&
+      rootFolders &&
+      rootFolders.length > 0 &&
+      onRefreshRootFolders
+    ) {
       try {
         await onRefreshRootFolders();
       } catch (error) {
@@ -414,7 +546,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       }
     } else {
       // Otherwise use the local refresh trigger
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger((prev) => prev + 1);
     }
   };
 
@@ -426,7 +558,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       }
       const match = driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
       if (!match || !match[1]) {
-         return undefined;
+        return undefined;
       }
       return match[1];
     } else {
@@ -448,34 +580,43 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       const parentId = getParentIdForNewFolder();
 
       if (!parentId) {
-        throw new Error('ไม่สามารถระบุโฟลเดอร์หลักสำหรับสร้างโฟลเดอร์ได้');
+        throw new Error("ไม่สามารถระบุโฟลเดอร์หลักสำหรับสร้างโฟลเดอร์ได้");
       }
 
-      const response = await fetch('https://www.googleapis.com/drive/v3/files', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: folderName.trim(),
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentId]
-        }),
-      });
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: folderName.trim(),
+            mimeType: "application/vnd.google-apps.folder",
+            parents: [parentId],
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorData.error?.message?.includes(
+            "insufficient authentication scopes"
+          )
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
-        const errorMessage = errorData?.error?.message || response.statusText || "Unknown error";
+
+        const errorMessage =
+          errorData?.error?.message || response.statusText || "Unknown error";
         throw new Error(`เกิดข้อผิดพลาดในการสร้างโฟลเดอร์: ${errorMessage}`);
       }
 
@@ -488,7 +629,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถสร้างโฟลเดอร์ใน Google Drive ได้",
+        description:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถสร้างโฟลเดอร์ใน Google Drive ได้",
         variant: "destructive",
       });
       throw error;
@@ -506,34 +650,46 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     }
 
     try {
-      const folderToRename = files.find(f => f.name === oldName && f.type === 'folder');
+      const folderToRename = files.find(
+        (f) => f.name === oldName && f.type === "folder"
+      );
       if (!folderToRename?.id) {
-        throw new Error('ไม่พบโฟลเดอร์ที่ต้องการเปลี่ยนชื่อ');
+        throw new Error("ไม่พบโฟลเดอร์ที่ต้องการเปลี่ยนชื่อ");
       }
 
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${folderToRename.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newName.trim()
-        }),
-      });
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${folderToRename.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newName.trim(),
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorData.error?.message?.includes(
+            "insufficient authentication scopes"
+          )
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
-        throw new Error(`เกิดข้อผิดพลาดในการเปลี่ยนชื่อโฟลเดอร์: ${response.status} ${response.statusText}`);
+
+        throw new Error(
+          `เกิดข้อผิดพลาดในการเปลี่ยนชื่อโฟลเดอร์: ${response.status} ${response.statusText}`
+        );
       }
 
       toast({
@@ -545,7 +701,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนชื่อโฟลเดอร์ได้",
+        description:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถเปลี่ยนชื่อโฟลเดอร์ได้",
         variant: "destructive",
       });
       throw error;
@@ -564,29 +723,38 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     }
 
     try {
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newName.trim()
-        }),
-      });
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newName.trim(),
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorData.error?.message?.includes(
+            "insufficient authentication scopes"
+          )
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
-        const errorMessage = errorData?.error?.message || response.statusText || "Unknown error";
+
+        const errorMessage =
+          errorData?.error?.message || response.statusText || "Unknown error";
         throw new Error(`เกิดข้อผิดพลาดในการเปลี่ยนชื่อไฟล์: ${errorMessage}`);
       }
 
@@ -599,7 +767,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนชื่อไฟล์ได้",
+        description:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถเปลี่ยนชื่อไฟล์ได้",
         variant: "destructive",
       });
       throw error;
@@ -617,25 +788,35 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     }
 
     try {
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${folderId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorData.error?.message?.includes(
+            "insufficient authentication scopes"
+          )
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
-        throw new Error(`เกิดข้อผิดพลาดในการลบโฟลเดอร์: ${response.status} ${response.statusText}`);
+
+        throw new Error(
+          `เกิดข้อผิดพลาดในการลบโฟลเดอร์: ${response.status} ${response.statusText}`
+        );
       }
 
       toast({
@@ -647,7 +828,8 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: error instanceof Error ? error.message : "ไม่สามารถลบโฟลเดอร์ได้",
+        description:
+          error instanceof Error ? error.message : "ไม่สามารถลบโฟลเดอร์ได้",
         variant: "destructive",
       });
       throw error;
@@ -655,89 +837,110 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   };
 
   const getFolderName = (folderId: string): string => {
-    return folderNameCache[folderId] || (loadingFolderNames[folderId] ? 'Loading...' : folderId);
+    return (
+      folderNameCache[folderId] ||
+      (loadingFolderNames[folderId] ? "Loading..." : folderId)
+    );
   };
 
-  const handleItemClick = useCallback(async (item: FileItem) => {
-    if (item.type === 'folder') {
-      const newPath = [...currentPath, item.id];
-      onPathChange(newPath);
-    } else {
-      if (!accessToken) {
-        toast({
-          title: "เกิดข้อผิดพลาด",
-          description: "ไม่พบ Access Token ไม่สามารถเปิดไฟล์ได้",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        let fileContentUrl: string;
-
-        // สำหรับ Google Native files (Docs, Sheets, etc.)
-        if (item.mimeType && item.mimeType.startsWith('application/vnd.google-apps.')) {
-          // ใช้ export endpoint สำหรับ Google Docs
-          fileContentUrl = `https://www.googleapis.com/drive/v3/files/${item.id}/export?mimeType=application/pdf`;
-        } else {
-          // ใช้ alt=media endpoint สำหรับไฟล์ทั่วไป
-          fileContentUrl = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`;
-        }
-
-        // ดึงเนื้อหาไฟล์โดยตรงจาก Google Drive API
-        const response = await fetch(fileContentUrl, {
-          headers: { 
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/pdf' // ระบุว่าเราต้องการ PDF
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          
-          // Check for 401 Unauthorized - token expired
-          if (response.status === 401) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return;
-            }
-          }
-          
-          // Check for insufficient scope error
-          if (response.status === 403 && errorText.includes('insufficient authentication scopes')) {
-            if (onInsufficientScopeError) {
-              await onInsufficientScopeError();
-              return;
-            }
-          }
-          
+  const handleItemClick = useCallback(
+    async (item: FileItem) => {
+      if (item.type === "folder") {
+        const newPath = [...currentPath, item.id];
+        onPathChange(newPath);
+      } else {
+        if (!accessToken) {
           toast({
-            title: "เกิดข้อผิดพลาดในการเปิดไฟล์",
-            description: `ไม่สามารถดึงเนื้อหาไฟล์ได้: ${response.statusText || response.status}`,
+            title: "เกิดข้อผิดพลาด",
+            description: "ไม่พบ Access Token ไม่สามารถเปิดไฟล์ได้",
             variant: "destructive",
           });
           return;
         }
 
-        // รับเนื้อหาไฟล์เป็น Blob
-        const fileBlob = await response.blob();
-        const blobUrl = URL.createObjectURL(fileBlob);
+        try {
+          let fileContentUrl: string;
 
-        // ส่ง Blob URL และข้อมูล FileItem ไปให้ Dashboard/PDFViewer
-        onFileSelect({...item, url: blobUrl});
+          // สำหรับ Google Native files (Docs, Sheets, etc.)
+          if (
+            item.mimeType &&
+            item.mimeType.startsWith("application/vnd.google-apps.")
+          ) {
+            // ใช้ export endpoint สำหรับ Google Docs
+            fileContentUrl = `https://www.googleapis.com/drive/v3/files/${item.id}/export?mimeType=application/pdf`;
+          } else {
+            // ใช้ alt=media endpoint สำหรับไฟล์ทั่วไป
+            fileContentUrl = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`;
+          }
 
-      } catch (error) {
-        toast({
-          title: "เกิดข้อผิดพลาด",
-          description: `ไม่สามารถเปิดไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
-          variant: "destructive",
-        });
+          // ดึงเนื้อหาไฟล์โดยตรงจาก Google Drive API
+          const response = await fetch(fileContentUrl, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/pdf", // ระบุว่าเราต้องการ PDF
+            },
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+
+            // Check for 401 Unauthorized - token expired
+            if (response.status === 401) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return;
+              }
+            }
+
+            // Check for insufficient scope error
+            if (
+              response.status === 403 &&
+              errorText.includes("insufficient authentication scopes")
+            ) {
+              if (onInsufficientScopeError) {
+                await onInsufficientScopeError();
+                return;
+              }
+            }
+
+            toast({
+              title: "เกิดข้อผิดพลาดในการเปิดไฟล์",
+              description: `ไม่สามารถดึงเนื้อหาไฟล์ได้: ${
+                response.statusText || response.status
+              }`,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // รับเนื้อหาไฟล์เป็น Blob
+          const fileBlob = await response.blob();
+          const blobUrl = URL.createObjectURL(fileBlob);
+
+          // ส่ง Blob URL และข้อมูล FileItem ไปให้ Dashboard/PDFViewer
+          onFileSelect({ ...item, url: blobUrl });
+        } catch (error) {
+          toast({
+            title: "เกิดข้อผิดพลาด",
+            description: `ไม่สามารถเปิดไฟล์ได้: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            variant: "destructive",
+          });
+        }
       }
-    }
-  }, [currentPath, onPathChange, onFileSelect, accessToken, onInsufficientScopeError]);
+    },
+    [
+      currentPath,
+      onPathChange,
+      onFileSelect,
+      accessToken,
+      onInsufficientScopeError,
+    ]
+  );
 
   const handleUpload = () => {
-    if (!hasPermission('upload')) {
+    if (!hasPermission("upload")) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to upload files.",
@@ -755,40 +958,45 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       return;
     }
 
-    const parentId = currentPath.length === 0 ? getParentIdForNewFolder() : currentPath[currentPath.length - 1];
+    const parentId =
+      currentPath.length === 0
+        ? getParentIdForNewFolder()
+        : currentPath[currentPath.length - 1];
 
     if (!parentId) {
-        toast({
-            title: "เกิดข้อผิดพลาด",
-            description: "ไม่สามารถระบุโฟลเดอร์ปลายทางสำหรับการอัปโหลดได้",
-            variant: "destructive",
-        });
-        return;
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถระบุโฟลเดอร์ปลายทางสำหรับการอัปโหลดได้",
+        variant: "destructive",
+      });
+      return;
     }
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf";
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-
         const metadata = {
           name: file.name,
           parents: [parentId],
         };
 
         const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', file);
+        form.append(
+          "metadata",
+          new Blob([JSON.stringify(metadata)], { type: "application/json" })
+        );
+        form.append("file", file);
 
         try {
           const response = await fetch(
-            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
             {
-              method: 'POST',
+              method: "POST",
               headers: {
-                'Authorization': `Bearer ${accessToken}`,
+                Authorization: `Bearer ${accessToken}`,
               },
               body: form,
             }
@@ -796,16 +1004,24 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            
+
             // Check for insufficient scope error
-            if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+            if (
+              response.status === 403 &&
+              errorData.error?.message?.includes(
+                "insufficient authentication scopes"
+              )
+            ) {
               if (onInsufficientScopeError) {
                 await onInsufficientScopeError();
                 return;
               }
             }
-            
-            const errorMessage = errorData?.error?.message || response.statusText || "Unknown error";
+
+            const errorMessage =
+              errorData?.error?.message ||
+              response.statusText ||
+              "Unknown error";
             throw new Error(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${errorMessage}`);
           }
 
@@ -817,11 +1033,13 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           });
 
           handleRefresh();
-
         } catch (error) {
           toast({
             title: "เกิดข้อผิดพลาด",
-            description: error instanceof Error ? error.message : "ไม่สามารถอัปโหลดไฟล์ขึ้น Google Drive ได้",
+            description:
+              error instanceof Error
+                ? error.message
+                : "ไม่สามารถอัปโหลดไฟล์ขึ้น Google Drive ได้",
             variant: "destructive",
           });
         }
@@ -831,7 +1049,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   };
 
   const handleDelete = async (file: FileItem) => {
-    if (!hasPermission('delete')) {
+    if (!hasPermission("delete")) {
       toast({
         title: "ไม่มีสิทธิ์",
         description: "คุณไม่มีสิทธิ์ในการลบไฟล์",
@@ -855,24 +1073,32 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         return;
       }
 
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorData.error?.message?.includes(
+            "insufficient authentication scopes"
+          )
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
+
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -886,7 +1112,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: `ไม่สามารถลบไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
+        description: `ไม่สามารถลบไฟล์ได้: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         variant: "destructive",
       });
     }
@@ -906,7 +1134,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       let downloadUrl: string;
 
       // สำหรับ Google Native files (Docs, Sheets, etc.)
-      if (file.mimeType && file.mimeType.startsWith('application/vnd.google-apps.')) {
+      if (
+        file.mimeType &&
+        file.mimeType.startsWith("application/vnd.google-apps.")
+      ) {
         // ใช้ export endpoint สำหรับ Google Docs เป็น PDF
         downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=application/pdf`;
       } else {
@@ -916,26 +1147,31 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       // ดึงเนื้อหาไฟล์โดยตรงจาก Google Drive API
       const response = await fetch(downloadUrl, {
-        headers: { 
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/pdf' // ระบุว่าเราต้องการ PDF
-        }
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/pdf", // ระบุว่าเราต้องการ PDF
+        },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && errorText.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          errorText.includes("insufficient authentication scopes")
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
+
         toast({
           title: "เกิดข้อผิดพลาดในการดาวน์โหลด",
-          description: `ไม่สามารถดาวน์โหลดไฟล์ได้: ${response.statusText || response.status}`,
+          description: `ไม่สามารถดาวน์โหลดไฟล์ได้: ${
+            response.statusText || response.status
+          }`,
           variant: "destructive",
         });
         return;
@@ -946,7 +1182,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       const blobUrl = URL.createObjectURL(fileBlob);
 
       // สร้างลิงก์สำหรับดาวน์โหลด
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = blobUrl;
       a.download = file.name;
       document.body.appendChild(a);
@@ -958,18 +1194,19 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         title: "ดาวน์โหลดสำเร็จ",
         description: `ดาวน์โหลด ${file.name} เรียบร้อยแล้ว`,
       });
-
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: `ไม่สามารถดาวน์โหลดไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
+        description: `ไม่สามารถดาวน์โหลดไฟล์ได้: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         variant: "destructive",
       });
     }
   };
 
   const handleView = async (file: FileItem) => {
-    if (!hasPermission('view')) {
+    if (!hasPermission("view")) {
       toast({
         title: "ไม่มีสิทธิ์",
         description: "คุณไม่มีสิทธิ์ในการดูไฟล์",
@@ -991,12 +1228,15 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       let fileUrl: string;
 
       // สำหรับ Google Native files (Docs, Sheets, etc.)
-      if (file.mimeType && file.mimeType.startsWith('application/vnd.google-apps.')) {
+      if (
+        file.mimeType &&
+        file.mimeType.startsWith("application/vnd.google-apps.")
+      ) {
         // ใช้ export endpoint สำหรับ Google Docs
         fileUrl = `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=application/pdf&access_token=${accessToken}`;
       } else {
         // ใช้ webViewLink สำหรับไฟล์ทั่วไป
-        fileUrl = file.url || '';
+        fileUrl = file.url || "";
       }
 
       if (!fileUrl) {
@@ -1009,7 +1249,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       }
 
       // เปิดไฟล์ในแท็บใหม่
-      window.open(fileUrl, '_blank');
+      window.open(fileUrl, "_blank");
       toast({
         title: "เปิดไฟล์",
         description: `เปิด ${file.name} ในแท็บใหม่`,
@@ -1017,7 +1257,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: `ไม่สามารถเปิดไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
+        description: `ไม่สามารถเปิดไฟล์ได้: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         variant: "destructive",
       });
     }
@@ -1030,7 +1272,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   };
 
   const handleDeleteFolder = async (folderName: string) => {
-    if (!hasPermission('delete')) {
+    if (!hasPermission("delete")) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to delete folders.",
@@ -1039,7 +1281,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       return;
     }
 
-    const folderToDelete = files.find(f => f.name === folderName && f.type === 'folder');
+    const folderToDelete = files.find(
+      (f) => f.name === folderName && f.type === "folder"
+    );
     if (!folderToDelete?.id) {
       toast({
         title: "เกิดข้อผิดพลาด",
@@ -1055,42 +1299,53 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
   // เพิ่มฟังก์ชันสำหรับจัดการการเปลี่ยนชื่อไฟล์ (เปิด prompt)
   const handleRenameFile = (file: FileItem) => {
-      if (!hasPermission('rename')) { // Assuming 'rename' permission exists
-          toast({
-              title: "ไม่มีสิทธิ์",
-              description: "คุณไม่มีสิทธิ์ในการเปลี่ยนชื่อไฟล์",
-              variant: "destructive",
-          });
-          return;
-      }
+    if (!hasPermission("rename")) {
+      // Assuming 'rename' permission exists
+      toast({
+        title: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการเปลี่ยนชื่อไฟล์",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      const newName = window.prompt(`เปลี่ยนชื่อไฟล์ "${file.name}" เป็น:`, file.name);
-      if (newName !== null && newName.trim() !== '' && newName.trim() !== file.name) {
-          renameFile(file.id, newName.trim());
-      } else if (newName !== null && newName.trim() === '') {
-           toast({
-              title: "ข้อผิดพลาด",
-              description: "ชื่อไฟล์ใหม่ต้องไม่ว่างเปล่า",
-              variant: "destructive",
-          });
-      }
+    const newName = window.prompt(
+      `เปลี่ยนชื่อไฟล์ "${file.name}" เป็น:`,
+      file.name
+    );
+    if (
+      newName !== null &&
+      newName.trim() !== "" &&
+      newName.trim() !== file.name
+    ) {
+      renameFile(file.id, newName.trim());
+    } else if (newName !== null && newName.trim() === "") {
+      toast({
+        title: "ข้อผิดพลาด",
+        description: "ชื่อไฟล์ใหม่ต้องไม่ว่างเปล่า",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleShareFolder = async (email: string, role: 'reader' | 'writer') => {
+  const handleShareFolder = async (
+    email: string,
+    role: "reader" | "writer"
+  ) => {
     if (!selectedFolder || !accessToken) return;
 
     try {
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${selectedFolder.id}/permissions`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             role: role,
-            type: 'user',
+            type: "user",
             emailAddress: email,
           }),
         }
@@ -1098,16 +1353,19 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       if (!response.ok) {
         const error = await response.json();
-        
+
         // Check for insufficient scope error
-        if (response.status === 403 && error.error?.message?.includes('insufficient authentication scopes')) {
+        if (
+          response.status === 403 &&
+          error.error?.message?.includes("insufficient authentication scopes")
+        ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
           }
         }
-        
-        throw new Error(error.error?.message || 'Failed to share folder');
+
+        throw new Error(error.error?.message || "Failed to share folder");
       }
 
       toast({
@@ -1120,20 +1378,24 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
   };
 
   const renderFileItem = (item: FileItem) => {
-    const isFolder = item.type === 'folder';
+    const isFolder = item.type === "folder";
     const Icon = isFolder ? FolderUp : FileText;
 
     return (
       <div
         key={item.id}
         className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg cursor-pointer group"
-        onClick={() => isFolder ? onPathChange([...currentPath, item.id]) : onFileSelect(item)}
+        onClick={() =>
+          isFolder
+            ? onPathChange([...currentPath, item.id])
+            : onFileSelect(item)
+        }
       >
         <div className="flex items-center space-x-3">
           <Icon className="w-5 h-5 text-gray-500" />
           <span className="text-sm">{item.name}</span>
         </div>
-        {isFolder && userRole === 'Admin' && (
+        {isFolder && userRole === "Admin" && (
           <Button
             variant="ghost"
             size="sm"
@@ -1156,7 +1418,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">
-            {currentPath.length === 0 ? 'Faculties' : getFolderName(currentPath[currentPath.length - 1])}
+            {currentPath.length === 0
+              ? "Faculties"
+              : getFolderName(currentPath[currentPath.length - 1])}
           </CardTitle>
           <div className="flex items-center space-x-2">
             <FolderActions
@@ -1172,8 +1436,12 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
               files={files}
               rootFolders={rootFolders}
             />
-            {hasPermission('upload') && (
-              <Button onClick={handleUpload} size="sm" className="bg-blue-600 hover:bg-blue-700">
+            {hasPermission("upload") && (
+              <Button
+                onClick={handleUpload}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 Upload
               </Button>
@@ -1193,7 +1461,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
             )}
           </div>
         </div>
-        
+
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 text-sm text-gray-500">
           <span
@@ -1213,10 +1481,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                 {folderNameCache[folderId]
                   ? folderNameCache[folderId]
                   : loadingFolderNames[folderId]
-                    ? 'Loading...'
-                    : failedFolderNames[folderId]
-                      ? 'Unknown Folder'
-                      : 'Loading...'}
+                  ? "Loading..."
+                  : failedFolderNames[folderId]
+                  ? "Unknown Folder"
+                  : "Loading..."}
               </span>
             </div>
           ))}
@@ -1232,7 +1500,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           />
         </div>
       </CardHeader>
-      
+
       <CardContent>
         {loadingSearch ? (
           <div className="text-center py-8 text-gray-500">
@@ -1245,12 +1513,18 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
             {(searchResults !== null ? searchResults : files).length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Folder className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>{searchQuery !== '' ? 'ไม่พบผลลัพธ์การค้นหา' : (currentPath.length === 0 ? 'ไม่พบข้อมูลใน Root Folder นี้' : 'ไม่พบข้อมูลในโฟลเดอร์นี้')}</p>
+                <p>
+                  {searchQuery !== ""
+                    ? "ไม่พบผลลัพธ์การค้นหา"
+                    : currentPath.length === 0
+                    ? "ไม่พบข้อมูลใน Root Folder นี้"
+                    : "ไม่พบข้อมูลในโฟลเดอร์นี้"}
+                </p>
               </div>
             ) : (
               (searchResults !== null ? searchResults : files).map((file) => (
                 <div key={file.id}>
-                  {file.type === 'folder' ? (
+                  {file.type === "folder" ? (
                     <ContextMenu>
                       <ContextMenuTrigger asChild>
                         <div
@@ -1260,20 +1534,26 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                           <div className="flex items-center space-x-3">
                             <Folder className="w-5 h-5 text-blue-600" />
                             <div>
-                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="font-medium text-gray-900">
+                                {file.name}
+                              </p>
                             </div>
                           </div>
                         </div>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
-                        {hasPermission('upload') && (
-                          <ContextMenuItem onClick={() => handleRenameFolder(file.name)}>
+                        {hasPermission("upload") && (
+                          <ContextMenuItem
+                            onClick={() => handleRenameFolder(file.name)}
+                          >
                             <Edit className="w-4 h-4 mr-2" />
                             Rename
                           </ContextMenuItem>
                         )}
-                        {hasPermission('delete') && (
-                          <ContextMenuItem onClick={() => handleDeleteFolder(file.name)}>
+                        {hasPermission("delete") && (
+                          <ContextMenuItem
+                            onClick={() => handleDeleteFolder(file.name)}
+                          >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
                           </ContextMenuItem>
@@ -1290,7 +1570,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                           <div className="flex items-center space-x-3">
                             <FileText className="w-5 h-5 text-red-600" />
                             <div>
-                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="font-medium text-gray-900">
+                                {file.name}
+                              </p>
                               <p className="text-sm text-gray-500">
                                 {file.size} • Modified {file.lastModified}
                               </p>
@@ -1299,7 +1581,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
                           {/* ไอคอน View, Download, Delete กลับมาแสดงตรงนี้ */}
                           <div className="flex items-center space-x-1">
-                            {hasPermission('view') && file.url && (
+                            {hasPermission("view") && file.url && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1321,7 +1603,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                             >
                               <Download className="w-4 h-4" />
                             </Button>
-                            {hasPermission('rename') && (
+                            {hasPermission("rename") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1333,7 +1615,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                                 <Edit className="w-4 h-4" />
                               </Button>
                             )}
-                            {hasPermission('delete') && (
+                            {hasPermission("delete") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1346,24 +1628,25 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
                               </Button>
                             )}
                           </div>
-
                         </div>
                       </ContextMenuTrigger>
 
                       <ContextMenuContent>
-                        {hasPermission('rename') && (
-                          <ContextMenuItem onClick={() => handleRenameFile(file)}>
+                        {hasPermission("rename") && (
+                          <ContextMenuItem
+                            onClick={() => handleRenameFile(file)}
+                          >
                             <Edit className="w-4 h-4 mr-2" />
                             Rename
                           </ContextMenuItem>
                         )}
-                        {hasPermission('delete') && (
+                        {hasPermission("delete") && (
                           <ContextMenuItem onClick={() => handleDelete(file)}>
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
                           </ContextMenuItem>
                         )}
-                        {hasPermission('view') && file.url && (
+                        {hasPermission("view") && file.url && (
                           <ContextMenuItem onClick={() => handleView(file)}>
                             <FileText className="w-4 h-4 mr-2" />
                             View
@@ -1390,7 +1673,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           setSelectedFolder(null);
         }}
         onShare={handleShareFolder}
-        folderName={selectedFolder?.name || ''}
+        folderName={selectedFolder?.name || ""}
       />
     </Card>
   );
