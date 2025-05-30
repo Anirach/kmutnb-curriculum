@@ -6,7 +6,7 @@ module.exports = {
       args: ["start"],
       env: {
         HOST: '0.0.0.0',
-        PORT: 3000,
+        PORT: 8080,
         DANGEROUSLY_DISABLE_HOST_CHECK: 'true',
       }
     }
