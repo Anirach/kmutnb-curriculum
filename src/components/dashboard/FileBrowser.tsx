@@ -674,8 +674,9 @@ export const FileBrowser = ({
     }
 
     try {
+      // Add support for shared drives and ensure proper permissions
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${folderId}`,
+        `https://www.googleapis.com/drive/v3/files/${folderId}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
           method: "DELETE",
           headers: {
@@ -687,16 +688,36 @@ export const FileBrowser = ({
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
 
+        // Handle 401 Unauthorized - token expired
+        if (response.status === 401) {
+          if (onInsufficientScopeError) {
+            await onInsufficientScopeError();
+            return;
+          }
+        }
+
         // Check for insufficient scope error
         if (
           response.status === 403 &&
-          errorData.error?.message?.includes(
+          errorData?.error?.message?.includes(
             "insufficient authentication scopes"
           )
         ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
+          }
+        }
+
+        // Handle specific 403 permission errors
+        if (response.status === 403) {
+          const errorMessage = errorData?.error?.message || response.statusText;
+          if (errorMessage.includes("The user does not have sufficient permissions")) {
+            throw new Error("คุณไม่มีสิทธิ์ในการลบโฟลเดอร์นี้ กรุณาติดต่อเจ้าของโฟลเดอร์");
+          } else if (errorMessage.includes("File not found") || errorMessage.includes("does not exist")) {
+            throw new Error("ไม่พบโฟลเดอร์ที่ต้องการลบ อาจถูกลบไปแล้ว");
+          } else {
+            throw new Error(`ไม่สามารถลบโฟลเดอร์ได้: ${errorMessage}`);
           }
         }
 
@@ -960,7 +981,7 @@ export const FileBrowser = ({
       }
 
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${file.id}`,
+        `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
           method: "DELETE",
           headers: {
@@ -972,16 +993,36 @@ export const FileBrowser = ({
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
 
+        // Handle 401 Unauthorized - token expired
+        if (response.status === 401) {
+          if (onInsufficientScopeError) {
+            await onInsufficientScopeError();
+            return;
+          }
+        }
+
         // Check for insufficient scope error
         if (
           response.status === 403 &&
-          errorData.error?.message?.includes(
+          errorData?.error?.message?.includes(
             "insufficient authentication scopes"
           )
         ) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
+          }
+        }
+
+        // Handle specific 403 permission errors for files
+        if (response.status === 403) {
+          const errorMessage = errorData?.error?.message || response.statusText;
+          if (errorMessage.includes("The user does not have sufficient permissions")) {
+            throw new Error("คุณไม่มีสิทธิ์ในการลบไฟล์นี้ กรุณาติดต่อเจ้าของไฟล์");
+          } else if (errorMessage.includes("File not found") || errorMessage.includes("does not exist")) {
+            throw new Error("ไม่พบไฟล์ที่ต้องการลบ อาจถูกลบไปแล้ว");
+          } else {
+            throw new Error(`ไม่สามารถลบไฟล์ได้: ${errorMessage}`);
           }
         }
 
@@ -1179,8 +1220,18 @@ export const FileBrowser = ({
       return;
     }
 
-    await deleteFolder(folderToDelete.id);
-    handleRefresh();
+    // Add confirmation dialog for folder deletion
+    if (!window.confirm(`คุณต้องการลบโฟลเดอร์ "${folderName}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`)) {
+      return;
+    }
+
+    try {
+      await deleteFolder(folderToDelete.id);
+      handleRefresh();
+    } catch (error) {
+      // Error is already handled and shown in deleteFolder function
+      // No need to show additional toast here
+    }
   };
 
   // เพิ่มฟังก์ชันสำหรับจัดการการเปลี่ยนชื่อไฟล์ (เปิด prompt)
