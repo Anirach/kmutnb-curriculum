@@ -14,7 +14,6 @@ export class EncryptedStorage {
       const bytes = CryptoJS.AES.decrypt(encryptedText, SECRET_KEY);
       return bytes.toString(CryptoJS.enc.Utf8);
     } catch (error) {
-      console.error('Failed to decrypt data:', error);
       return '';
     }
   }
@@ -24,7 +23,6 @@ export class EncryptedStorage {
       const encryptedValue = this.encrypt(value);
       localStorage.setItem(key, encryptedValue);
     } catch (error) {
-      console.error('Failed to encrypt and store data:', error);
       // Fallback to regular localStorage if encryption fails
       localStorage.setItem(key, value);
     }
@@ -39,7 +37,6 @@ export class EncryptedStorage {
       const decryptedValue = this.decrypt(encryptedValue);
       return decryptedValue || encryptedValue;
     } catch (error) {
-      console.error('Failed to decrypt data:', error);
       // Fallback to returning the raw value
       return localStorage.getItem(key);
     }

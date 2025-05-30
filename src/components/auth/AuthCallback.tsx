@@ -14,7 +14,6 @@ export const AuthCallback = () => {
     const error = urlParams.get('error');
 
     if (error) {
-      console.error('OAuth error:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
@@ -25,7 +24,6 @@ export const AuthCallback = () => {
     }
 
     if (!code) {
-      console.error('No authorization code found');
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่พบรหัสการยืนยันตัวตน กรุณาลองใหม่อีกครั้ง",

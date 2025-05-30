@@ -95,7 +95,6 @@ export const Dashboard = () => {
   // Clear token refresh interval
   const clearTokenRefreshInterval = useCallback(() => {
     if (intervalRef.current) {
-      console.log('Clearing token refresh interval');
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
@@ -134,7 +133,6 @@ export const Dashboard = () => {
   const refreshAccessToken = useCallback(async (token: string) => {
     // Prevent multiple simultaneous refresh attempts
     if (isRefreshingRef.current) {
-      console.log('Token refresh already in progress, skipping...');
       return;
     }
 
@@ -142,14 +140,12 @@ export const Dashboard = () => {
     
     const settings = await userService.getGoogleDriveSettings();
     if (!settings.clientId || !settings.clientSecret) {
-      console.error('Cannot refresh token: Missing client settings');
       isRefreshingRef.current = false;
       handleTokenExpired();
       throw new Error('Missing client settings for token refresh');
     }
 
     try {
-      console.log('Refreshing access token...');
       const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
@@ -165,11 +161,9 @@ export const Dashboard = () => {
 
       const data = await response.json();
       if (data.error) {
-        console.error('Error refreshing token:', data.error);
         throw new Error(data.error);
       }
 
-      console.log('Token refreshed successfully');
       setAccessToken(data.access_token);
       encryptedStorage.setTokens(data.access_token, data.refresh_token);
       if (data.refresh_token) {
@@ -179,7 +173,6 @@ export const Dashboard = () => {
       return data.access_token;
 
     } catch (error) {
-      console.error('Error refreshing token:', error);
       handleTokenExpired();
       throw error;
     } finally {
@@ -196,13 +189,10 @@ export const Dashboard = () => {
 
     // Only setup if we have a refresh token
     if (refreshToken) {
-      console.log('Setting up token refresh interval (50 minutes)');
       intervalRef.current = setInterval(async () => {
         try {
-          console.log('Automatic token refresh triggered');
           await refreshAccessToken(refreshToken);
         } catch (error) {
-          console.error('Automatic token refresh failed:', error);
         }
       }, 50 * 60 * 1000); // 50 minutes in milliseconds
     }
@@ -237,7 +227,6 @@ export const Dashboard = () => {
                 const parsedUser = JSON.parse(storedUser);
                 setUser(parsedUser);
               } catch (error) {
-                console.error('Error parsing stored user:', error);
                 // Fallback to creating minimal user object
                 const userData = encryptedStorage.getUserData();
                 const displayName = userData.name || 'User';
@@ -285,13 +274,11 @@ export const Dashboard = () => {
         return false;
       }
     } catch (error) {
-      console.error('Error validating token:', error);
       if (refreshToken) {
         try {
           await refreshAccessToken(refreshToken);
           return true;
         } catch (refreshError) {
-          console.error('Refresh token failed:', refreshError);
           handleTokenExpired();
           return false;
         }
@@ -332,7 +319,6 @@ export const Dashboard = () => {
 
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Error during Google login:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
@@ -382,7 +368,6 @@ export const Dashboard = () => {
         description: "บันทึกการตั้งค่า Google Drive เรียบร้อยแล้ว",
       });
     } catch (error) {
-      console.error('Error saving drive URL:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถบันทึกการตั้งค่าได้",
@@ -460,7 +445,6 @@ export const Dashboard = () => {
         setTestResult(`Error testing access: ${data.error?.message || response.statusText}. Please ensure you have access to this folder.`);
       }
     } catch (error) {
-      console.error('Error during access test:', error);
       setTestResult(`An error occurred during test: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsTesting(false);
@@ -505,7 +489,6 @@ export const Dashboard = () => {
 
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Error during re-authentication:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
@@ -545,7 +528,6 @@ export const Dashboard = () => {
             const newToken = await refreshAccessToken(refreshToken);
             return fetchFiles(targetFolderId);
           } catch (error) {
-            console.error('❌ Error refreshing token during fetchFiles:', error);
             handleTokenExpired();
             setRootFolders([]);
             toast({
@@ -569,7 +551,6 @@ export const Dashboard = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Google Drive API error during fetchFiles:', response.status, errorData);
         
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
           await handleInsufficientScopeError();
@@ -603,7 +584,6 @@ export const Dashboard = () => {
       
       setRootFolders(sortedItems);
     } catch (error) {
-      console.error('❌ Error fetching files:', error);
       setRootFolders([]);
       toast({
         title: "เกิดข้อผิดพลาด",
@@ -642,7 +622,6 @@ export const Dashboard = () => {
 
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Error connecting to Google Drive:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเชื่อมต่อ Google Drive ได้ กรุณาลองใหม่อีกครั้ง",
@@ -681,13 +660,12 @@ export const Dashboard = () => {
               if (folderId) {
                 fetchFiles(folderId);
               } else {
-                console.error('Invalid driveUrl format:', settings.driveUrl);
+                // Invalid driveUrl format
               }
             }
           }
         }
       } catch (error) {
-        console.error('Error loading Google Drive settings:', error);
         toast({
           title: "เกิดข้อผิดพลาด",
           description: "ไม่สามารถโหลดการตั้งค่า Google Drive ได้",
@@ -737,7 +715,6 @@ export const Dashboard = () => {
         }
 
       } catch (error) {
-        console.error('Error loading user session:', error);
         // Don't call handleTokenExpired here - let CurriculumApp handle auth errors
       }
     };
@@ -792,7 +769,7 @@ export const Dashboard = () => {
             }
           }
         } catch (error) {
-          console.error('❌ Error auto-loading drive URL from environment:', error);
+          // Error auto-loading drive URL from environment
         }
       }
     };

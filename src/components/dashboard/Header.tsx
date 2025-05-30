@@ -31,7 +31,6 @@ export const Header = ({
       });
       window.location.href = '/';
     } catch (error) {
-      console.error('Error during logout:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถออกจากระบบได้ กรุณาลองใหม่อีกครั้ง",

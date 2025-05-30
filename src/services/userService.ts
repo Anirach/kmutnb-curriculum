@@ -25,7 +25,6 @@ export const userService = {
       }
       return null;
     } catch (error) {
-      console.error('Error fetching current user:', error);
       return null;
     }
   },

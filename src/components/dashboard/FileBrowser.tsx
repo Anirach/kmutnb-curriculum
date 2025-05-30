@@ -160,7 +160,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          console.error('Google Drive API error during fetchFolderContents:', response.status, errorData);
           
           if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
             if (onInsufficientScopeError) {
@@ -207,7 +206,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       return sortFiles(allItems);
 
     } catch (error) {
-      console.error('Error in fetchFolderContents:', error);
       throw error;
     }
   }, [onInsufficientScopeError]);
@@ -234,7 +232,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          console.error('Google Drive API error during fetchDirectChildren:', response.status, errorData);
           
           if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
             if (onInsufficientScopeError) {
@@ -270,7 +267,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       // เรียงลำดับไฟล์ทันทีที่ได้รับข้อมูลทั้งหมด
       return sortFiles(allFiles);
     } catch (error) {
-      console.error('Error fetching direct children for folder:', error);
       throw error;
     }
   }, [onInsufficientScopeError]);
@@ -309,7 +305,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           setFiles(directChildren); // ไม่ต้องเรียงลำดับอีกเพราะ directChildren ถูกเรียงลำดับแล้วจาก fetchDirectChildren
         }
       } catch (error) {
-        console.error('Failed to load files:', error);
         setFiles([]);
       }
     };
@@ -332,7 +327,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         );
         setSearchResults(filteredResults);
       } catch (error) {
-        console.error('Search error:', error);
         setSearchResults([]);
       } finally {
         setLoadingSearch(false);
@@ -367,7 +361,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
               newFailedStates[folderId] = true; // Mark as failed if not ok
             }
           } catch (error) {
-            console.error(`Error fetching name for folder ${folderId}:`, error);
             newFailedStates[folderId] = true; // Mark as failed on error
           } finally {
             newLoadingStates[folderId] = false;
@@ -401,7 +394,7 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       try {
         await onRefreshRootFolders();
       } catch (error) {
-        console.error('Error refreshing root folders:', error);
+        // Error refreshing root folders
       }
     } else {
       // Otherwise use the local refresh trigger
@@ -413,12 +406,10 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     if (currentPath.length === 0) {
       const { driveUrl } = encryptedStorage.getOAuthSettings();
       if (!driveUrl) {
-        console.error('getParentIdForNewFolder: driveUrl not found in encrypted storage.');
         return undefined;
       }
       const match = driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
       if (!match || !match[1]) {
-         console.error('getParentIdForNewFolder: Invalid driveUrl format.', driveUrl);
          return undefined;
       }
       return match[1];
@@ -441,11 +432,8 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       const parentId = getParentIdForNewFolder();
 
       if (!parentId) {
-        console.error('addNewFolder: Failed to determine parentId.', { currentPath });
         throw new Error('ไม่สามารถระบุโฟลเดอร์หลักสำหรับสร้างโฟลเดอร์ได้');
       }
-
-      console.log('Attempting to create folder with parent ID:', parentId);
 
       const response = await fetch('https://www.googleapis.com/drive/v3/files', {
         method: 'POST',
@@ -462,11 +450,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        console.error('Google Drive API error during folder creation:', response.status, errorData);
         
         // Check for insufficient scope error
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in addNewFolder, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -484,7 +470,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       handleRefresh();
     } catch (error) {
-      console.error('Error creating folder:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error instanceof Error ? error.message : "ไม่สามารถสร้างโฟลเดอร์ใน Google Drive ได้",
@@ -526,7 +511,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         
         // Check for insufficient scope error
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in renameFolder, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -543,7 +527,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       handleRefresh();
     } catch (error) {
-      console.error('Error renaming folder:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนชื่อโฟลเดอร์ได้",
@@ -581,7 +564,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         
         // Check for insufficient scope error
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in renameFile, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -599,7 +581,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       handleRefresh(); // รีเฟรชรายการหลังจากเปลี่ยนชื่อ
     } catch (error) {
-      console.error('Error renaming file:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนชื่อไฟล์ได้",
@@ -632,7 +613,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         
         // Check for insufficient scope error
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in deleteFolder, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -649,7 +629,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
       handleRefresh();
     } catch (error) {
-      console.error('Error deleting folder:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: error instanceof Error ? error.message : "ไม่สามารถลบโฟลเดอร์ได้",
@@ -760,7 +739,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
             description: "ไม่สามารถระบุโฟลเดอร์ปลายทางสำหรับการอัปโหลดได้",
             variant: "destructive",
         });
-        console.error('handleUpload: Failed to determine parentId.', { currentPath });
         return;
     }
 
@@ -770,7 +748,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        console.log('Selected file for upload:', file);
 
         const metadata = {
           name: file.name,
@@ -795,11 +772,9 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            console.error('Google Drive API error during file upload:', response.status, errorData);
             
             // Check for insufficient scope error
             if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-              console.log('Detected insufficient authentication scopes in file upload, triggering re-authentication...');
               if (onInsufficientScopeError) {
                 await onInsufficientScopeError();
                 return;
@@ -811,7 +786,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           }
 
           const result = await response.json();
-          console.log('File uploaded successfully:', result);
 
           toast({
             title: "อัปโหลดสำเร็จ",
@@ -821,7 +795,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
           handleRefresh();
 
         } catch (error) {
-          console.error('Error during file upload:', error);
           toast({
             title: "เกิดข้อผิดพลาด",
             description: error instanceof Error ? error.message : "ไม่สามารถอัปโหลดไฟล์ขึ้น Google Drive ได้",
@@ -870,7 +843,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         
         // Check for insufficient scope error
         if (response.status === 403 && errorData.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in handleDelete, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -888,7 +860,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
       // รีเฟรชรายการไฟล์
       handleRefresh();
     } catch (error) {
-      console.error('Error deleting file:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: `ไม่สามารถลบไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
@@ -1020,7 +991,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         description: `เปิด ${file.name} ในแท็บใหม่`,
       });
     } catch (error) {
-      console.error('Error opening file:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: `ไม่สามารถเปิดไฟล์ได้: ${error instanceof Error ? error.message : String(error)}`,
@@ -1107,7 +1077,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         
         // Check for insufficient scope error
         if (response.status === 403 && error.error?.message?.includes('insufficient authentication scopes')) {
-          console.log('Detected insufficient authentication scopes in handleShareFolder, triggering re-authentication...');
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -1122,7 +1091,6 @@ export const FileBrowser = ({ currentPath, onPathChange, onFileSelect, rootFolde
         description: `แชร์โฟลเดอร์ "${selectedFolder.name}" กับ ${email} แล้ว`,
       });
     } catch (error) {
-      console.error('Error sharing folder:', error);
       throw error;
     }
   };

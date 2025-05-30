@@ -81,7 +81,6 @@ export const FolderActions = forwardRef<FolderActionsRef, FolderActionsProps>(
 
       } catch (e) {
         // Error จะถูกจัดการและแสดง toast โดย addNewFolder ใน FileBrowser แล้ว
-        console.error('Error caught after calling onAddFolder:', e);
         // อาจจะไม่ต้องทำอะไรเพิ่มเติมที่นี่ หรืออาจจะ log error เฉยๆ
       }
     };
@@ -117,7 +116,6 @@ export const FolderActions = forwardRef<FolderActionsRef, FolderActionsProps>(
            await onRenameFolder(selectedFolder, renameFolderName.trim()); // เรียกใช้ prop
             // ไม่ต้องแสดง toast หรือ onRefresh ที่นี่ เพราะ onRenameFolder ใน FileBrowser ทำแล้ว
         } catch (e) {
-           console.error('Error caught after calling onRenameFolder:', e);
             // อาจจะไม่ต้องทำอะไรเพิ่มเติมที่นี่
         }
       }

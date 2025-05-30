@@ -30,7 +30,6 @@ const AppContent = () => {
   // Enhanced token refresh with automatic scheduling
   const refreshAccessToken = useCallback(async (refreshToken: string) => {
     if (isRefreshingRef.current) {
-      console.log('Token refresh already in progress, skipping...');
       return null;
     }
 
@@ -56,7 +55,6 @@ const AppContent = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Token refresh error:', errorData);
         throw new Error('Failed to refresh token');
       }
 
@@ -64,10 +62,8 @@ const AppContent = () => {
       // Store both access token and refresh token (refresh token might be rotated)
       encryptedStorage.setTokens(data.access_token, data.refresh_token || refreshToken);
       
-      console.log('Token refreshed successfully');
       return data.access_token;
     } catch (error) {
-      console.error('Error refreshing token:', error);
       // ถ้า refresh token ไม่สำเร็จ ให้ลบ token ทั้งหมด
       encryptedStorage.clearUserData();
       throw error;
@@ -81,19 +77,16 @@ const AppContent = () => {
     const { refreshToken, accessToken } = encryptedStorage.getTokens();
 
     if (!refreshToken) {
-      console.log('No refresh token available');
       return null;
     }
 
     try {
       // ถ้าไม่มี access token ให้ refresh ทันที
       if (!accessToken) {
-        console.log('No access token, refreshing immediately');
         try {
           const newAccessToken = await refreshAccessToken(refreshToken);
           return newAccessToken;
         } catch (error) {
-          console.error('Failed to refresh access token:', error);
           encryptedStorage.clearUserData();
           return null;
         }
@@ -101,7 +94,6 @@ const AppContent = () => {
 
       // ตรวจสอบว่า token ยังใช้งานได้หรือไม่โดยการเรียก API
       try {
-        console.log('Validating existing access token');
         const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -109,10 +101,8 @@ const AppContent = () => {
         });
 
         if (response.ok) {
-          console.log('Access token is still valid');
           return accessToken;
         } else if (response.status === 401) {
-          console.log('Access token expired, refreshing...');
           // Token หมดอายุ ให้ refresh
           const newAccessToken = await refreshAccessToken(refreshToken);
           return newAccessToken;
@@ -120,20 +110,16 @@ const AppContent = () => {
           throw new Error(`Token validation failed with status: ${response.status}`);
         }
       } catch (error) {
-        console.error('Access token validation failed:', error);
         // ถ้า token หมดอายุหรือไม่สามารถใช้งานได้ ให้ refresh
         try {
-          console.log('Attempting to refresh token after validation failure');
           const newAccessToken = await refreshAccessToken(refreshToken);
           return newAccessToken;
         } catch (refreshError) {
-          console.error('Failed to refresh access token:', refreshError);
           encryptedStorage.clearUserData();
           return null;
         }
       }
     } catch (error) {
-      console.error('Error in validateAndRefreshToken:', error);
       encryptedStorage.clearUserData();
       return null;
     }
@@ -150,12 +136,9 @@ const AppContent = () => {
     intervalRef.current = setInterval(async () => {
       const { refreshToken } = encryptedStorage.getTokens();
       if (refreshToken && !isRefreshingRef.current) {
-        console.log('Running automatic token refresh...');
         try {
           await refreshAccessToken(refreshToken);
-          console.log('Automatic token refresh completed successfully');
         } catch (error) {
-          console.error('Automatic token refresh failed:', error);
           // If automatic refresh fails, user will need to re-authenticate
           // Don't clear data immediately, let the user continue using the app
           // until they try to make an API call that fails
@@ -163,7 +146,6 @@ const AppContent = () => {
       }
     }, 50 * 60 * 1000); // 50 minutes
 
-    console.log('Token refresh interval set up');
   }, [refreshAccessToken]);
 
   // Clear token refresh interval
@@ -171,7 +153,6 @@ const AppContent = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-      console.log('Token refresh interval cleared');
     }
   }, []);
 
@@ -190,7 +171,6 @@ const AppContent = () => {
 
       if (!userResponse.ok) {
         const errorText = await userResponse.text();
-        console.error('Failed to fetch user info:', errorText);
         return false;
       }
 
@@ -222,7 +202,6 @@ const AppContent = () => {
 
       return true;
     } catch (error) {
-      console.error('Error in checkAndSetUserFromToken:', error);
       return false;
     }
   }, [setUser, validateAndRefreshToken]);
@@ -232,7 +211,6 @@ const AppContent = () => {
     const initializeApp = async () => {
       try {
         setIsInitializing(true);
-        console.log('Initializing app...');
         // Migrate existing localStorage data to encrypted storage
         EncryptedStorage.migrateExistingData(SENSITIVE_KEYS);
 
@@ -258,7 +236,6 @@ const AppContent = () => {
 
         // Clear old cached user data to ensure new name logic takes effect
         if (userData && userData.name && (userData.name === 'Anirach.M' || userData.name === 'anirach.m' || userData.name.includes('A.M') || userData.name.includes('anirach.m'))) {
-          console.log('Clearing old cached user data');
           encryptedStorage.clearUserData();
         }
 
@@ -267,7 +244,6 @@ const AppContent = () => {
 
         if (code) {
           // OAuth callback flow
-          console.log('Processing OAuth code...');
           
           try {
             const settings = await userService.getGoogleDriveSettings();
@@ -313,8 +289,6 @@ const AppContent = () => {
             // เก็บข้อมูลการ login
             encryptedStorage.setUserData(userData.email, userInfo.name, userData.picture || '', role);
 
-            console.log('User authenticated successfully via OAuth flow');
-
             // Setup automatic token refresh for authenticated user
             setupTokenRefreshInterval();
 
@@ -323,7 +297,6 @@ const AppContent = () => {
               navigate('/dashboard');
             }
           } catch (error) {
-            console.error('OAuth flow error:', error);
             toast({
               title: "เกิดข้อผิดพลาด",
               description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
@@ -332,11 +305,9 @@ const AppContent = () => {
             navigate('/');
           }
         } else {
-          console.log('No authorization code, checking existing tokens...');
           // ถ้าไม่มี code ให้ตรวจสอบ token ที่มีอยู่
           const isValid = await checkAndSetUserFromToken();
           if (isValid) {
-            console.log('Existing tokens are valid, user authenticated');
             // Setup automatic token refresh for authenticated user
             setupTokenRefreshInterval();
             // ถ้า token ใช้งานได้ ให้ไปที่ Dashboard ถ้าอยู่ที่หน้า dashboard
@@ -355,7 +326,6 @@ const AppContent = () => {
           }
         }
       } catch (error) {
-        console.error('Error during initialization:', error);
         encryptedStorage.clearUserData();
         clearTokenRefreshInterval();
         // ไปที่หน้า landing หากเกิดข้อผิดพลาด
@@ -365,7 +335,6 @@ const AppContent = () => {
       } finally {
         setIsLoading(false);
         setIsInitializing(false);
-        console.log('App initialization completed');
       }
     };
 
@@ -416,7 +385,6 @@ const AppContent = () => {
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${settings.clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(JSON.stringify({ type: 'login' }))}`;
       window.location.href = authUrl;
     } catch (error) {
-      console.error('Error during Google login:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
@@ -450,7 +418,6 @@ const AppContent = () => {
       try {
         await handleGoogleLogin();
       } catch (error) {
-        console.error('Error during login:', error);
         toast({
           title: "เกิดข้อผิดพลาด",
           description: "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง",
