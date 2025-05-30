@@ -176,7 +176,7 @@ const AppContent = () => {
 
       const userData = await userResponse.json();
 
-      const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
+      const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'anirach.m@itm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
       const role: UserRole = adminEmails.includes(userData.email.toLowerCase()) ? 'Admin' : 'Viewer';
 
       // Determine the display name - use actual name from Google API
@@ -271,7 +271,7 @@ const AppContent = () => {
             });
             const userData = await userResponse.json();
 
-            const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
+            const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'anirach.m@itm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
             const role = adminEmails.includes(userData.email.toLowerCase()) ? 'Admin' : 'Viewer';
 
             const userInfo = {

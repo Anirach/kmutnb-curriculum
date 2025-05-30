@@ -42,7 +42,7 @@ export interface GoogleDriveResponse {
 }
 
 // List of admin email addresses - users not in this list will be assigned 'Viewer' role
-const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
+const adminEmails = ['anirach.m@fitm.kmutnb.ac.th', 'anirach.m@itm.kmutnb.ac.th', 'chutharat.m@op.kmutnb.ac.th'];
 
 // Helper function to sort files: folders first, then files, both in ascending alphabetical order
 const sortFiles = (files: FileItem[]): FileItem[] => {
