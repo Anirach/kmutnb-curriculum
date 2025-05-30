@@ -193,6 +193,9 @@ export const Dashboard = () => {
         try {
           await refreshAccessToken(refreshToken);
         } catch (error) {
+          console.error('Failed to refresh access token:', error);
+          // The refreshAccessToken function already handles token expiration
+          // by calling handleTokenExpired, so we just log the error here
         }
       }, 50 * 60 * 1000); // 50 minutes in milliseconds
     }
@@ -916,6 +919,7 @@ export const Dashboard = () => {
               onFileSelect={setSelectedFile}
               rootFolders={rootFolders}
               userRole={user.role}
+              userEmail={userEmail}
               accessToken={accessToken}
               onInsufficientScopeError={handleInsufficientScopeError}
               onRefreshRootFolders={handleRefreshRootFolders}

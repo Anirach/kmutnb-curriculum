@@ -166,7 +166,7 @@ export const FileBrowser = ({
   onInsufficientScopeError,
   onRefreshRootFolders,
 }: FileBrowserProps) => {
-  const { hasPermission } = useUser();
+  const { hasPermission, user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -980,6 +980,20 @@ export const FileBrowser = ({
         return;
       }
 
+      const isAdminUser = userRole === 'Admin';
+      let deleteSuccessful = false;
+      let finalResponse: Response | null = null;
+      let finalErrorData: { error?: { message?: string; code?: string; domain?: string } } | null = null;
+
+      // Method 1: Try DELETE first
+      console.log('Method 1: Attempting DELETE operation for file:', file.name, 'ID:', file.id);
+      console.log('User role:', userRole, 'Is admin:', isAdminUser);
+      console.log('File details:', { 
+        mimeType: file.mimeType, 
+        parents: file.parents,
+        currentPath: currentPath 
+      });
+
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
@@ -990,11 +1004,64 @@ export const FileBrowser = ({
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
+      if (response.ok) {
+        deleteSuccessful = true;
+        console.log('Method 1: DELETE successful');
+      } else {
+        finalResponse = response;
+        finalErrorData = await response.json().catch(() => null);
+        console.log('Method 1: DELETE failed:', response.status, finalErrorData);
+        console.log('Error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: finalErrorData?.error?.message,
+          errorCode: finalErrorData?.error?.code,
+          errorDomain: finalErrorData?.error?.domain
+        });
+        
+        // For 403 errors, skip the generic trash fallback and go to specialized error handling
+        if (response.status === 403) {
+          console.log('403 error detected, skipping generic trash fallback for specialized handling');
+        } else {
+          // Method 2: If DELETE failed with non-403 error, try PATCH to trash as fallback
+          console.log('Method 2: Attempting PATCH to trash as fallback for non-403 error');
+          const trashResponse = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
+            {
+              method: "PATCH",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                trashed: true,
+              }),
+            }
+          );
+
+          if (trashResponse.ok) {
+            deleteSuccessful = true;
+            console.log('Method 2: PATCH to trash successful');
+            toast({
+              title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
+              description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว`,
+            });
+            handleRefresh();
+            return;
+          } else {
+            const trashErrorData = await trashResponse.json().catch(() => null);
+            console.log('Method 2: PATCH to trash failed:', trashResponse.status, trashErrorData);
+          }
+        }
+      }
+
+      if (!deleteSuccessful && finalResponse) {
+        console.log('All deletion methods failed for file, processing error response');
+        const errorData = finalErrorData;
+        console.log('Delete API Error:', { status: finalResponse.status, errorData });
 
         // Handle 401 Unauthorized - token expired
-        if (response.status === 401) {
+        if (finalResponse.status === 401) {
           if (onInsufficientScopeError) {
             await onInsufficientScopeError();
             return;
@@ -1003,7 +1070,7 @@ export const FileBrowser = ({
 
         // Check for insufficient scope error
         if (
-          response.status === 403 &&
+          finalResponse.status === 403 &&
           errorData?.error?.message?.includes(
             "insufficient authentication scopes"
           )
@@ -1015,33 +1082,189 @@ export const FileBrowser = ({
         }
 
         // Handle specific 403 permission errors for files
-        if (response.status === 403) {
-          const errorMessage = errorData?.error?.message || response.statusText;
-          if (errorMessage.includes("The user does not have sufficient permissions")) {
-            throw new Error("คุณไม่มีสิทธิ์ในการลบไฟล์นี้ กรุณาติดต่อเจ้าของไฟล์");
-          } else if (errorMessage.includes("File not found") || errorMessage.includes("does not exist")) {
-            throw new Error("ไม่พบไฟล์ที่ต้องการลบ อาจถูกลบไปแล้ว");
+        if (finalResponse.status === 403) {
+          const errorMessage = errorData?.error?.message || finalResponse.statusText;
+          console.log('403 Permission Error:', errorMessage);
+          
+          // For admin users with 403 errors, try alternative approaches
+          if (isAdminUser) {
+            console.log('Admin user detected, trying enhanced fallback methods for 403 error');
+            console.log('Original error details:', {
+              message: errorMessage,
+              fullError: errorData,
+              responseStatus: finalResponse.status
+            });
+            
+            // Check for common Google Drive permission issues
+            if (errorMessage.includes("The user does not have sufficient permissions") || 
+                errorMessage.includes("insufficient permissions") ||
+                errorMessage.includes("User does not have edit access")) {
+              
+              // Admin Method 1: Try to use a different API approach - files.update instead of files.delete
+              console.log('Admin Method 1: Attempting files.update with trashed=true...');
+              try {
+                const updateResponse = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      trashed: true,
+                    }),
+                  }
+                );
+
+                console.log('Admin Method 1 response:', updateResponse.status);
+                
+                if (updateResponse.ok) {
+                  console.log('Admin Method 1 successful: File moved to trash');
+                  toast({
+                    title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
+                    description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว (Admin method)`,
+                  });
+                  handleRefresh();
+                  return;
+                } else {
+                  const updateError = await updateResponse.json().catch(() => null);
+                  console.log('Admin Method 1 failed:', updateResponse.status, updateError);
+                }
+              } catch (updateError) {
+                console.log('Admin Method 1 exception:', updateError);
+              }
+              
+              // Admin Method 2: Try to remove from parent and trash
+              console.log('Admin Method 2: Attempting to remove parent relationship...');
+              try {
+                const currentParent = currentPath.length > 0 ? currentPath[currentPath.length - 1] : 'root';
+                console.log('Current parent for removal:', currentParent);
+                
+                const removeParentResponse = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&removeParents=${currentParent}`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      trashed: true,
+                    }),
+                  }
+                );
+
+                console.log('Admin Method 2 response:', removeParentResponse.status);
+                
+                if (removeParentResponse.ok) {
+                  console.log('Admin Method 2 successful: Parent removed and file trashed');
+                  toast({
+                    title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
+                    description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว (Admin advanced method)`,
+                  });
+                  handleRefresh();
+                  return;
+                } else {
+                  const removeError = await removeParentResponse.json().catch(() => null);
+                  console.log('Admin Method 2 failed:', removeParentResponse.status, removeError);
+                }
+              } catch (removeError) {
+                console.log('Admin Method 2 exception:', removeError);
+              }
+              
+              // Admin Method 3: Try to check file permissions first
+              console.log('Admin Method 3: Checking file permissions...');
+              try {
+                const permResponse = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${file.id}/permissions?supportsAllDrives=true`,
+                  {
+                    method: "GET",
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                    },
+                  }
+                );
+                
+                if (permResponse.ok) {
+                  const permissions = await permResponse.json();
+                  console.log('File permissions:', permissions);
+                  
+                  // Check if we have any write permissions
+                  const hasWriteAccess = permissions.permissions?.some((perm: { role: string }) => 
+                    perm.role === 'writer' || perm.role === 'owner'
+                  );
+                  
+                  if (!hasWriteAccess) {
+                    console.log('No write access detected for file');
+                    toast({
+                      title: "ข้อมูลสำหรับ Admin",
+                      description: `ไฟล์ "${file.name}" ไม่มีสิทธิ์เขียน กรุณาขอให้เจ้าของไฟล์เพิ่มสิทธิ์ Editor`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                } else {
+                  console.log('Cannot check file permissions:', permResponse.status);
+                }
+              } catch (permError) {
+                console.log('Admin Method 3 exception:', permError);
+              }
+              
+              // All admin methods failed - provide detailed guidance
+              toast({
+                title: "ข้อมูลสำหรับ Admin",
+                description: `ไฟล์ "${file.name}" ต้องการสิทธิ์พิเศษ:
+1. ขอให้เจ้าของไฟล์เพิ่มคุณเป็น Editor หรือ Owner
+2. ตรวจสอบว่าไฟล์อยู่ใน Shared Drive ที่คุณมีสิทธิ์
+3. ลองจัดการใน Google Drive โดยตรง
+4. ติดต่อ Google Workspace Admin ถ้าจำเป็น
+
+รายละเอียดข้อผิดพลาด: ${errorMessage}`,
+                variant: "destructive",
+              });
+              return;
+            }
           } else {
-            throw new Error(`ไม่สามารถลบไฟล์ได้: ${errorMessage}`);
+            // Standard user error handling
+            if (errorMessage.includes("The user does not have sufficient permissions") || 
+                errorMessage.includes("insufficient permissions") ||
+                errorMessage.includes("User does not have edit access")) {
+              throw new Error("คุณไม่มีสิทธิ์ในการลบไฟล์นี้ กรุณาติดต่อเจ้าของไฟล์หรือขอสิทธิ์ Editor");
+            }
+          }
+          
+          if (errorMessage.includes("File not found") || errorMessage.includes("does not exist")) {
+            throw new Error("ไม่พบไฟล์ที่ต้องการลบ อาจถูกลบไปแล้ว");
+          } else if (errorMessage.includes("The file is in the trash")) {
+            throw new Error("ไฟล์นี้อยู่ในถังขยะแล้ว");
+          } else {
+            // Generic 403 error with role-specific message
+            const helpText = isAdminUser 
+              ? " (Admin: ตรวจสอบว่าได้รับสิทธิ์ Editor หรือ Owner จากเจ้าของไฟล์ หรือลองใน Google Drive โดยตรง)" 
+              : " กรุณาติดต่อ Admin หรือเจ้าของไฟล์";
+            throw new Error(`ไม่สามารถลบไฟล์ได้: ${errorMessage}${helpText}`);
           }
         }
 
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(
+          `เกิดข้อผิดพลาดในการลบไฟล์: ${finalResponse.status} ${finalResponse.statusText}`
+        );
       }
 
-      toast({
-        title: "ลบไฟล์สำเร็จ",
-        description: `ลบไฟล์ "${file.name}" เรียบร้อยแล้ว`,
-      });
+      if (deleteSuccessful) {
+        toast({
+          title: "ลบไฟล์สำเร็จ",
+          description: `ลบไฟล์ "${file.name}" เรียบร้อยแล้ว`,
+        });
 
-      // รีเฟรชรายการไฟล์
-      handleRefresh();
+        handleRefresh();
+      }
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: `ไม่สามารถลบไฟล์ได้: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        description:
+          error instanceof Error ? error.message : "ไม่สามารถลบไฟล์ได้",
         variant: "destructive",
       });
     }
@@ -1314,6 +1537,54 @@ export const FileBrowser = ({
     }
   };
 
+  // Grant Editor Access to current user for a file/folder
+  const handleGrantEditorAccess = async (item: FileItem) => {
+    if (!user?.email || !accessToken) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่พบข้อมูลผู้ใช้หรือ Access Token",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${item.id}/permissions?supportsAllDrives=true`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: "writer",
+            type: "user",
+            emailAddress: user.email,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        toast({
+          title: "ไม่สามารถเพิ่มสิทธิ์ Editor ได้",
+          description: error?.error?.message || response.statusText,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "เพิ่มสิทธิ์ Editor สำเร็จ",
+        description: `คุณได้รับสิทธิ์ Editor สำหรับ "${item.name}" แล้ว`,
+      });
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="flex-1 m-4 mr-2">
       <CardHeader className="pb-4">
@@ -1557,6 +1828,12 @@ export const FileBrowser = ({
                           <Download className="w-4 h-4 mr-2" />
                           Download
                         </ContextMenuItem>
+                        {hasPermission("delete") && userRole === "Admin" && (
+                          <ContextMenuItem onClick={() => handleGrantEditorAccess(file)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Grant Editor Access (to me)
+                          </ContextMenuItem>
+                        )}
                       </ContextMenuContent>
                     </ContextMenu>
                   )}
