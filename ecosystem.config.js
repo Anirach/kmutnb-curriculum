@@ -2,7 +2,7 @@ module.exports = {
     apps: [{
         name: "pm-web",
         script: "npm",
-        args: ["start"],
+        args: ["run", "dev"],
         env: {
             HOST: '0.0.0.0',
             PORT: 3000,
