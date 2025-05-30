@@ -13,8 +13,6 @@ import {
   Edit,
   RotateCw,
   Share2,
-  FolderUp,
-  ChevronLeft,
 } from "lucide-react";
 import {
   ContextMenu,
@@ -173,7 +171,6 @@ export const FileBrowser = ({
   const [files, setFiles] = useState<FileItem[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const folderActionsRef = useRef<FolderActionsRef>(null);
-  const isDriveReadonly = !!rootFolders;
 
   const [folderNameCache, setFolderNameCache] = useState<
     Record<string, string>
@@ -183,7 +180,7 @@ export const FileBrowser = ({
   >({});
   const [failedFolderNames, setFailedFolderNames] = useState<
     Record<string, boolean>
-  >({}); // NEW: track failed fetches
+  >({});
 
   const [searchResults, setSearchResults] = useState<FileItem[] | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -193,102 +190,6 @@ export const FileBrowser = ({
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<FileItem | null>(null);
 
-  const fetchFolderContents = useCallback(
-    async (
-      folderId: string,
-      token: string,
-      allItems: FileItem[] = []
-    ): Promise<FileItem[]> => {
-      let pageToken: string | null = null;
-      let currentFolderItems: FileItem[] = [];
-
-      try {
-        do {
-          const response = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
-              pageToken ? "&pageToken=" + pageToken : ""
-            }`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
-
-            // Handle 401 Unauthorized - token expired
-            if (response.status === 401) {
-              if (onInsufficientScopeError) {
-                await onInsufficientScopeError();
-                return allItems;
-              }
-            }
-
-            if (
-              response.status === 403 &&
-              errorData.error?.message?.includes(
-                "insufficient authentication scopes"
-              )
-            ) {
-              if (onInsufficientScopeError) {
-                await onInsufficientScopeError();
-                return allItems;
-              }
-            }
-
-            throw new Error(
-              `Google Drive API error: ${
-                errorData.error?.message || response.statusText
-              }`
-            );
-          }
-
-          const data = await response.json();
-          if (data.files && Array.isArray(data.files)) {
-            const items: FileItem[] = data.files.map(
-              (item: GoogleDriveFile) => ({
-                id: item.id,
-                name: item.name,
-                type:
-                  item.mimeType === "application/vnd.google-apps.folder"
-                    ? "folder"
-                    : "file",
-                path: [], // path is managed at the Dashboard level
-                url: item.webViewLink,
-                downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
-                size: item.size,
-                lastModified: item.modifiedTime
-                  ? new Date(item.modifiedTime).toLocaleDateString()
-                  : undefined,
-                parents: item.parents,
-                mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
-              })
-            );
-            currentFolderItems = [...currentFolderItems, ...items];
-            pageToken = data.nextPageToken || null;
-          } else {
-            pageToken = null;
-          }
-        } while (pageToken);
-
-        // Add current folder items to the total list
-        allItems = [...allItems, ...currentFolderItems];
-
-        // Recursively fetch contents of subfolders
-        for (const item of currentFolderItems) {
-          if (item.type === "folder") {
-            allItems = await fetchFolderContents(item.id, token, allItems);
-          }
-        }
-
-        // Sort all items before returning
-        return sortFiles(allItems);
-      } catch (error) {
-        throw error;
-      }
-    },
-    [onInsufficientScopeError]
-  );
-
-  // ฟังก์ชันใหม่สำหรับดึง Direct Children เท่านั้น
   const fetchDirectChildren = useCallback(
     async (
       folderId: string,
@@ -300,7 +201,6 @@ export const FileBrowser = ({
 
       try {
         do {
-          // Add cache-busting parameter when refreshing
           const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : "";
           const response = await fetch(
             `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&access_token=${token}&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
@@ -309,7 +209,6 @@ export const FileBrowser = ({
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                // Force no-cache when refreshing
                 ...(forceRefresh && {
                   "Cache-Control": "no-cache",
                   Pragma: "no-cache",
@@ -358,15 +257,15 @@ export const FileBrowser = ({
                   item.mimeType === "application/vnd.google-apps.folder"
                     ? "folder"
                     : "file",
-                path: [], // path is managed at the Dashboard level
+                path: [],
                 url: item.webViewLink,
-                downloadUrl: item.webContentLink, // ใช้ webContentLink สำหรับ downloadUrl
+                downloadUrl: item.webContentLink,
                 size: item.size,
                 lastModified: item.modifiedTime
                   ? new Date(item.modifiedTime).toLocaleDateString()
                   : undefined,
                 parents: item.parents,
-                mimeType: item.mimeType, // เพิ่ม mimeType เพื่อใช้ในการตรวจสอบประเภทไฟล์
+                mimeType: item.mimeType,
               })
             );
             allFiles = [...allFiles, ...items];
@@ -376,7 +275,6 @@ export const FileBrowser = ({
           }
         } while (pageToken);
 
-        // เรียงลำดับไฟล์ทันทีที่ได้รับข้อมูลทั้งหมด
         return sortFiles(allFiles);
       } catch (error) {
         throw error;
@@ -394,7 +292,7 @@ export const FileBrowser = ({
 
       // If we're at the root level and have rootFolders from Dashboard, use them
       if (currentPath.length === 0 && rootFolders && rootFolders.length > 0) {
-        setFiles(rootFolders); // ไม่ต้องเรียงลำดับอีกเพราะ rootFolders ถูกเรียงลำดับแล้วจาก Dashboard
+        setFiles(rootFolders);
         return;
       }
 
@@ -411,24 +309,13 @@ export const FileBrowser = ({
       }
 
       try {
-        // Check if this is a refresh trigger (refreshTrigger > 0)
         const isRefresh = refreshTrigger > 0;
-
-        if (currentPath.length === 0 && targetFolderId) {
-          const directChildren = await fetchDirectChildren(
-            targetFolderId,
-            accessToken,
-            isRefresh
-          );
-          setFiles(directChildren); // ไม่ต้องเรียงลำดับอีกเพราะ directChildren ถูกเรียงลำดับแล้วจาก fetchDirectChildren
-        } else if (currentPath.length > 0 && targetFolderId) {
-          const directChildren = await fetchDirectChildren(
-            targetFolderId,
-            accessToken,
-            isRefresh
-          );
-          setFiles(directChildren); // ไม่ต้องเรียงลำดับอีกเพราะ directChildren ถูกเรียงลำดับแล้วจาก fetchDirectChildren
-        }
+        const directChildren = await fetchDirectChildren(
+          targetFolderId,
+          accessToken,
+          isRefresh
+        );
+        setFiles(directChildren);
       } catch (error) {
         setFiles([]);
       }
@@ -476,7 +363,7 @@ export const FileBrowser = ({
 
       const newFolderNames: Record<string, string> = {};
       const newLoadingStates: Record<string, boolean> = {};
-      const newFailedStates: Record<string, boolean> = {}; // NEW
+      const newFailedStates: Record<string, boolean> = {};
 
       for (const folderId of currentPath) {
         if (
@@ -495,10 +382,10 @@ export const FileBrowser = ({
               const data = await response.json();
               newFolderNames[folderId] = data.name;
             } else {
-              newFailedStates[folderId] = true; // Mark as failed if not ok
+              newFailedStates[folderId] = true;
             }
           } catch (error) {
-            newFailedStates[folderId] = true; // Mark as failed on error
+            newFailedStates[folderId] = true;
           } finally {
             newLoadingStates[folderId] = false;
           }
@@ -526,7 +413,6 @@ export const FileBrowser = ({
   ]);
 
   const handleRefresh = async () => {
-    // Provide visual feedback by showing a toast
     toast({
       title: "รีเฟรชไฟล์",
       description: "กำลังโหลดข้อมูลล่าสุดจาก Google Drive...",
@@ -1375,42 +1261,6 @@ export const FileBrowser = ({
     } catch (error) {
       throw error;
     }
-  };
-
-  const renderFileItem = (item: FileItem) => {
-    const isFolder = item.type === "folder";
-    const Icon = isFolder ? FolderUp : FileText;
-
-    return (
-      <div
-        key={item.id}
-        className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg cursor-pointer group"
-        onClick={() =>
-          isFolder
-            ? onPathChange([...currentPath, item.id])
-            : onFileSelect(item)
-        }
-      >
-        <div className="flex items-center space-x-3">
-          <Icon className="w-5 h-5 text-gray-500" />
-          <span className="text-sm">{item.name}</span>
-        </div>
-        {isFolder && userRole === "Admin" && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedFolder(item);
-              setShowShareDialog(true);
-            }}
-          >
-            <Share2 className="w-4 h-4" />
-          </Button>
-        )}
-      </div>
-    );
   };
 
   return (
