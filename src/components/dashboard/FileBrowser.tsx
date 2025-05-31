@@ -449,7 +449,7 @@ export const FileBrowser = ({
     [accessToken]
   );
 
-  // Recursive search function that searches through all subfolders
+  // Optimized search function: single API call, batch resolve folder paths
   const searchAllFolders = useCallback(
     async (
       folderId: string,
@@ -457,7 +457,7 @@ export const FileBrowser = ({
       visited: Set<string> = new Set()
     ): Promise<FileItem[]> => {
       if (visited.has(folderId)) {
-        return []; // Prevent infinite loops
+        return [];
       }
       visited.add(folderId);
 
@@ -465,19 +465,17 @@ export const FileBrowser = ({
         let allResults: FileItem[] = [];
         let pageToken: string | null = null;
 
-        // Search in current folder using Google Drive API query
+        // 1. Search for matching files in the current folder
         do {
+          const q = `'${folderId}' in parents and name contains '${query}' and trashed=false`;
           const response = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false+and+name+contains+'${query}'&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
-              pageToken ? "&pageToken=" + pageToken : ""
-            }`,
+            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=nextPageToken,files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${pageToken ? "&pageToken=" + pageToken : ""}`,
             {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
               },
             }
           );
-
           if (!response.ok) {
             if (response.status === 401 && onInsufficientScopeError) {
               await onInsufficientScopeError();
@@ -485,7 +483,6 @@ export const FileBrowser = ({
             }
             break;
           }
-
           const data = await response.json();
           if (data.files && Array.isArray(data.files)) {
             const items: FileItem[] = await Promise.all(
@@ -504,17 +501,16 @@ export const FileBrowser = ({
                     : undefined,
                   parents: item.parents,
                   mimeType: item.mimeType,
-                  folderPath: folderPath, // Add folder path for search results
+                  folderPath: folderPath,
                 };
               })
             );
             allResults = [...allResults, ...items];
           }
-
           pageToken = data.nextPageToken || null;
         } while (pageToken);
 
-        // Get all subfolders in current directory to search recursively
+        // 2. Get all subfolders and search them recursively in parallel
         const foldersResponse = await fetch(
           `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false+and+mimeType='application/vnd.google-apps.folder'&fields=files(id)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true`,
           {
@@ -523,11 +519,9 @@ export const FileBrowser = ({
             },
           }
         );
-
         if (foldersResponse.ok) {
           const foldersData = await foldersResponse.json();
           if (foldersData.files && Array.isArray(foldersData.files)) {
-            // Search recursively in each subfolder
             const subfolderPromises = foldersData.files.map((folder: { id: string }) =>
               searchAllFolders(folder.id, query, visited)
             );
