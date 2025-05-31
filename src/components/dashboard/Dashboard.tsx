@@ -408,7 +408,7 @@ export const Dashboard = () => {
 
       const currentToken = accessToken;
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and trashed=false&fields=files(id,name)`,
+        `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and trashed=false&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
         { headers: { Authorization: `Bearer ${currentToken}` } }
       );
 
@@ -425,7 +425,7 @@ export const Dashboard = () => {
           try {
             const newToken = await refreshAccessToken(refreshToken);
             const retryResponse = await fetch(
-              `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and trashed=false&fields=files(id,name)`,
+              `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and trashed=false&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
               { headers: { Authorization: `Bearer ${newToken}` } }
             );
             const retryData = await retryResponse.json();
@@ -515,7 +515,7 @@ export const Dashboard = () => {
       // Add cache-busting parameter when refreshing
       const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : '';
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q='${targetFolderId}' in parents and trashed=false&fields=files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)${cacheBuster}`,
+        `https://www.googleapis.com/drive/v3/files?q='${targetFolderId}' in parents and trashed=false&fields=files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&supportsAllDrives=true&includeItemsFromAllDrives=true${cacheBuster}`,
         { 
           headers: { 
             Authorization: `Bearer ${accessToken}`,
@@ -954,7 +954,6 @@ export const Dashboard = () => {
               onFileSelect={setSelectedFile}
               rootFolders={rootFolders}
               userRole={user.role}
-              userEmail={userEmail}
               accessToken={accessToken}
               onInsufficientScopeError={handleInsufficientScopeError}
               onRefreshRootFolders={handleRefreshRootFolders}

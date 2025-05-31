@@ -374,7 +374,7 @@ export const FileBrowser = ({
           newLoadingStates[folderId] = true;
           try {
             const response = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${folderId}?fields=name&access_token=${accessToken}`,
+              `https://www.googleapis.com/drive/v3/files/${folderId}?fields=name&supportsAllDrives=true&supportsTeamDrives=true&access_token=${accessToken}`,
               { headers: { Authorization: `Bearer ${accessToken}` } }
             );
 
@@ -470,7 +470,7 @@ export const FileBrowser = ({
       }
 
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files",
+        "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&supportsTeamDrives=true",
         {
           method: "POST",
           headers: {
@@ -544,7 +544,7 @@ export const FileBrowser = ({
       }
 
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${folderToRename.id}`,
+        `https://www.googleapis.com/drive/v3/files/${folderToRename.id}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
           method: "PATCH",
           headers: {
@@ -610,7 +610,7 @@ export const FileBrowser = ({
 
     try {
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
           method: "PATCH",
           headers: {
@@ -899,7 +899,7 @@ export const FileBrowser = ({
 
         try {
           const response = await fetch(
-            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&supportsTeamDrives=true",
             {
               method: "POST",
               headers: {
