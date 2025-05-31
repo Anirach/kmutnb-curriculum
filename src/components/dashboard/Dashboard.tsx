@@ -24,6 +24,7 @@ export interface FileItem {
   lastModified?: string;
   parents?: string[];
   mimeType?: string;
+  folderPath?: string; // Add folder path for search results
 }
 
 export interface GoogleDriveFile {

@@ -417,6 +417,133 @@ export const FileBrowser = ({
     refreshTrigger,
   ]);
 
+  // Function to get folder path for search results
+  const getFolderPath = useCallback(
+    async (parents: string[] | undefined): Promise<string> => {
+      if (!parents || parents.length === 0 || !accessToken) {
+        return "";
+      }
+
+      try {
+        // Get the immediate parent folder name
+        const parentId = parents[0];
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${parentId}?fields=name,parents&supportsAllDrives=true&supportsTeamDrives=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          return data.name || "";
+        }
+      } catch (error) {
+        // Silently fail, just return empty path
+      }
+
+      return "";
+    },
+    [accessToken]
+  );
+
+  // Recursive search function that searches through all subfolders
+  const searchAllFolders = useCallback(
+    async (
+      folderId: string,
+      query: string,
+      visited: Set<string> = new Set()
+    ): Promise<FileItem[]> => {
+      if (visited.has(folderId)) {
+        return []; // Prevent infinite loops
+      }
+      visited.add(folderId);
+
+      try {
+        let allResults: FileItem[] = [];
+        let pageToken: string | null = null;
+
+        // Search in current folder using Google Drive API query
+        do {
+          const response = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false+and+name+contains+'${query}'&fields=nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,webViewLink,webContentLink)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${
+              pageToken ? "&pageToken=" + pageToken : ""
+            }`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            if (response.status === 401 && onInsufficientScopeError) {
+              await onInsufficientScopeError();
+              return [];
+            }
+            break;
+          }
+
+          const data = await response.json();
+          if (data.files && Array.isArray(data.files)) {
+            const items: FileItem[] = await Promise.all(
+              data.files.map(async (item: GoogleDriveFile) => {
+                const folderPath = await getFolderPath(item.parents);
+                return {
+                  id: item.id,
+                  name: item.name,
+                  type: item.mimeType === "application/vnd.google-apps.folder" ? "folder" : "file",
+                  path: [],
+                  url: item.webViewLink,
+                  downloadUrl: item.webContentLink,
+                  size: item.size,
+                  lastModified: item.modifiedTime
+                    ? new Date(item.modifiedTime).toLocaleDateString()
+                    : undefined,
+                  parents: item.parents,
+                  mimeType: item.mimeType,
+                  folderPath: folderPath, // Add folder path for search results
+                };
+              })
+            );
+            allResults = [...allResults, ...items];
+          }
+
+          pageToken = data.nextPageToken || null;
+        } while (pageToken);
+
+        // Get all subfolders in current directory to search recursively
+        const foldersResponse = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false+and+mimeType='application/vnd.google-apps.folder'&fields=files(id)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (foldersResponse.ok) {
+          const foldersData = await foldersResponse.json();
+          if (foldersData.files && Array.isArray(foldersData.files)) {
+            // Search recursively in each subfolder
+            const subfolderPromises = foldersData.files.map((folder: { id: string }) =>
+              searchAllFolders(folder.id, query, visited)
+            );
+            const subfolderResults = await Promise.all(subfolderPromises);
+            allResults = [...allResults, ...subfolderResults.flat()];
+          }
+        }
+
+        return allResults;
+      } catch (error) {
+        return [];
+      }
+    },
+    [accessToken, onInsufficientScopeError, getFolderPath]
+  );
+
   // แยก useEffect สำหรับการค้นหา
   useEffect(() => {
     const performSearch = async () => {
@@ -425,12 +552,33 @@ export const FileBrowser = ({
         return;
       }
 
+      if (searchQuery.length < 2) {
+        // Only search if query is at least 2 characters to avoid too many results
+        setSearchResults(null);
+        return;
+      }
+
       setLoadingSearch(true);
       try {
-        const filteredResults = files.filter((item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setSearchResults(filteredResults);
+        // Get the root folder ID for searching
+        const match = driveUrl?.match(/folders\/([a-zA-Z0-9_-]+)/);
+        const rootFolderId = match ? match[1] : null;
+        
+        if (!rootFolderId) {
+          // Fallback to searching current folder only
+          const filteredResults = files.filter((item) =>
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+          setSearchResults(filteredResults);
+        } else {
+          // Search recursively from root or current folder
+          const searchFromId = currentPath.length > 0 
+            ? currentPath[currentPath.length - 1] 
+            : rootFolderId;
+          
+          const searchResults = await searchAllFolders(searchFromId, searchQuery);
+          setSearchResults(searchResults);
+        }
       } catch (error) {
         setSearchResults([]);
       } finally {
@@ -438,8 +586,10 @@ export const FileBrowser = ({
       }
     };
 
-    performSearch();
-  }, [searchQuery, accessToken, files]);
+    // Debounce search to avoid too many API calls
+    const timeoutId = setTimeout(performSearch, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, accessToken, files, driveUrl, currentPath, searchAllFolders]);
 
   // แยก useEffect สำหรับการโหลดชื่อโฟลเดอร์
   useEffect(() => {
@@ -759,8 +909,6 @@ export const FileBrowser = ({
     }
 
     try {
-      console.log(`Attempting to delete folder with ID: ${folderId}`);
-      
       // Add support for shared drives and ensure proper permissions
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${folderId}?supportsAllDrives=true&supportsTeamDrives=true`,
@@ -772,11 +920,8 @@ export const FileBrowser = ({
         }
       );
 
-      console.log(`Delete folder response status: ${response.status}`);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        console.log('Delete folder error data:', errorData);
 
         // Handle 401 Unauthorized - token expired
         if (response.status === 401) {
@@ -1861,6 +2006,12 @@ export const FileBrowser = ({
                               </p>
                               <p className="text-sm text-gray-500">
                                 {file.size} • Modified {file.lastModified}
+                                {/* Show folder path for search results */}
+                                {searchResults !== null && file.folderPath && (
+                                  <span className="ml-2 text-blue-600">
+                                    • in {file.folderPath}
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </div>
