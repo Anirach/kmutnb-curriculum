@@ -48,6 +48,28 @@ export const userService = {
     };
   },
 
+  // Force reload settings from environment variables
+  async forceReloadFromEnvironment() {
+    // Clear stored settings and use environment variables
+    encryptedStorage.setOAuthSettings(
+      DEFAULT_GOOGLE_OAUTH_SETTINGS.clientId,
+      DEFAULT_GOOGLE_OAUTH_SETTINGS.clientSecret,
+      DEFAULT_GOOGLE_OAUTH_SETTINGS.driveUrl
+    );
+    
+    return {
+      clientId: DEFAULT_GOOGLE_OAUTH_SETTINGS.clientId,
+      clientSecret: DEFAULT_GOOGLE_OAUTH_SETTINGS.clientSecret,
+      driveUrl: DEFAULT_GOOGLE_OAUTH_SETTINGS.driveUrl
+    };
+  },
+
+  // Check if current stored driveUrl differs from environment
+  async shouldUpdateFromEnvironment() {
+    const { driveUrl } = encryptedStorage.getOAuthSettings();
+    return driveUrl !== DEFAULT_GOOGLE_OAUTH_SETTINGS.driveUrl && DEFAULT_GOOGLE_OAUTH_SETTINGS.driveUrl;
+  },
+
   async setGoogleDriveSettings(settings: {
     clientId: string;
     clientSecret: string;
@@ -55,5 +77,5 @@ export const userService = {
   }) {
     // บันทึกการตั้งค่าลง encrypted storage
     encryptedStorage.setOAuthSettings(settings.clientId, settings.clientSecret, settings.driveUrl);
-  },
+  }
 };

@@ -753,17 +753,28 @@ export const Dashboard = () => {
 
   useEffect(() => {
     const autoLoadDriveUrlFromEnv = async () => {
-      if (accessToken && !driveUrl) {
-        
+      if (accessToken) {
         try {
-          const settings = await userService.getGoogleDriveSettings();
+          // Check if environment has a different driveUrl than stored
+          const shouldUpdate = await userService.shouldUpdateFromEnvironment();
           
-          if (settings?.driveUrl) {
-            
+          let settings;
+          if (shouldUpdate) {
+            // Force reload from environment and update storage
+            console.log('Environment driveUrl differs from stored, updating...');
+            settings = await userService.forceReloadFromEnvironment();
+            toast({
+              title: "อัพเดท Google Drive URL",
+              description: "ใช้ URL ใหม่จากการตั้งค่าระบบ",
+            });
+          } else {
+            // Use current settings (storage or environment fallback)
+            settings = await userService.getGoogleDriveSettings();
+          }
+          
+          if (settings?.driveUrl && (!driveUrl || shouldUpdate)) {
             setDriveUrl(settings.driveUrl);
             setInputUrl(settings.driveUrl);
-            // Store driveUrl in encrypted storage instead of localStorage
-            encryptedStorage.setOAuthSettings(clientId, clientSecret, settings.driveUrl);
             
             const match = settings.driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
             const folderId = match ? match[1] : null;
@@ -772,13 +783,13 @@ export const Dashboard = () => {
             }
           }
         } catch (error) {
-          // Error auto-loading drive URL from environment
+          console.error('Error auto-loading drive URL from environment:', error);
         }
       }
     };
 
     autoLoadDriveUrlFromEnv();
-  }, [accessToken, driveUrl, fetchFiles, clientId, clientSecret]);
+  }, [accessToken, driveUrl, fetchFiles, clientId, clientSecret, toast]);
 
   // Token refresh interval management
   useEffect(() => {
@@ -899,6 +910,30 @@ export const Dashboard = () => {
                   </Button>
                   <Button onClick={handleTestAccess} disabled={isTesting || !accessToken}>
                     Test Access
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        const settings = await userService.forceReloadFromEnvironment();
+                        setClientId(settings.clientId);
+                        setClientSecret(settings.clientSecret);
+                        setInputUrl(settings.driveUrl);
+                        setDriveUrl(settings.driveUrl);
+                        toast({
+                          title: "โหลดจากไฟล์ตั้งค่าสำเร็จ",
+                          description: "ใช้ค่าจากไฟล์ .env แล้ว",
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "เกิดข้อผิดพลาด",
+                          description: "ไม่สามารถโหลดค่าจากไฟล์ตั้งค่าได้",
+                          variant: "destructive",
+                        });
+                      }
+                    }} 
+                    variant="secondary"
+                  >
+                    Load from Environment
                   </Button>
                   <Button onClick={handleSaveDriveUrl}>Save Settings</Button>
                 </div>
