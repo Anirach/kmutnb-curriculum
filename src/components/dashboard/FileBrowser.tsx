@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +47,57 @@ const sortFiles = (files: FileItem[]): FileItem[] => {
     // Within the same type, sort alphabetically by name (case-insensitive)
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
+};
+
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmText?: string;
+  cancelText?: string;
+  isDestructive?: boolean;
+}
+
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmText = "ยืนยัน",
+  cancelText = "ยกเลิก",
+  isDestructive = false,
+}) => {
+  const handleConfirm = () => {
+    onConfirm();
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent aria-describedby="confirmation-dialog-description">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription id="confirmation-dialog-description">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {cancelText}
+          </Button>
+          <Button 
+            variant={isDestructive ? "destructive" : "default"} 
+            onClick={handleConfirm}
+          >
+            {confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 interface FileBrowserProps {
@@ -108,9 +160,12 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent aria-describedby="share-folder-description">
         <DialogHeader>
           <DialogTitle>แชร์โฟลเดอร์ "{folderName}"</DialogTitle>
+          <DialogDescription id="share-folder-description">
+            เพิ่มผู้ใช้งานอื่นให้สามารถเข้าถึงโฟลเดอร์นี้ได้
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -156,6 +211,17 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   );
 };
 
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmText?: string;
+  cancelText?: string;
+  isDestructive?: boolean;
+}
+
 export const FileBrowser = ({
   currentPath,
   onPathChange,
@@ -189,6 +255,11 @@ export const FileBrowser = ({
 
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<FileItem | null>(null);
+  
+  // Confirmation dialogs state
+  const [showDeleteFolderDialog, setShowDeleteFolderDialog] = useState(false);
+  const [showDeleteFileDialog, setShowDeleteFileDialog] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<FileItem | null>(null);
 
   const fetchDirectChildren = useCallback(
     async (
@@ -709,6 +780,16 @@ export const FileBrowser = ({
           }
         }
 
+        // Handle specific 404 not found errors
+        if (response.status === 404) {
+          const errorMessage = errorData?.error?.message || response.statusText;
+          if (errorMessage.includes("File not found") || errorMessage.includes("not found")) {
+            throw new Error("ไม่พบโฟลเดอร์ที่ต้องการลบ โฟลเดอร์อาจถูกลบไปแล้วหรือไม่มีอยู่จริง");
+          } else {
+            throw new Error(`ไม่พบโฟลเดอร์: ${errorMessage}`);
+          }
+        }
+
         // Handle specific 403 permission errors
         if (response.status === 403) {
           const errorMessage = errorData?.error?.message || response.statusText;
@@ -974,28 +1055,31 @@ export const FileBrowser = ({
       return;
     }
 
-    try {
-      // ยืนยันการลบ
-      if (!window.confirm(`คุณต้องการลบไฟล์ "${file.name}" ใช่หรือไม่?`)) {
-        return;
-      }
+    // Show confirmation dialog for file deletion
+    setItemToDelete(file);
+    setShowDeleteFileDialog(true);
+  };
 
+  const confirmDeleteFile = async () => {
+    if (!itemToDelete) return;
+
+    try {
       const isAdminUser = userRole === 'Admin';
       let deleteSuccessful = false;
       let finalResponse: Response | null = null;
       let finalErrorData: { error?: { message?: string; code?: string; domain?: string } } | null = null;
 
       // Method 1: Try DELETE first
-      console.log('Method 1: Attempting DELETE operation for file:', file.name, 'ID:', file.id);
+      console.log('Method 1: Attempting DELETE operation for file:', itemToDelete.name, 'ID:', itemToDelete.id);
       console.log('User role:', userRole, 'Is admin:', isAdminUser);
       console.log('File details:', { 
-        mimeType: file.mimeType, 
-        parents: file.parents,
+        mimeType: itemToDelete.mimeType, 
+        parents: itemToDelete.parents,
         currentPath: currentPath 
       });
 
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
+        `https://www.googleapis.com/drive/v3/files/${itemToDelete.id}?supportsAllDrives=true&supportsTeamDrives=true`,
         {
           method: "DELETE",
           headers: {
@@ -1026,7 +1110,7 @@ export const FileBrowser = ({
           // Method 2: If DELETE failed with non-403 error, try PATCH to trash as fallback
           console.log('Method 2: Attempting PATCH to trash as fallback for non-403 error');
           const trashResponse = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
+            `https://www.googleapis.com/drive/v3/files/${itemToDelete.id}?supportsAllDrives=true&supportsTeamDrives=true`,
             {
               method: "PATCH",
               headers: {
@@ -1044,7 +1128,7 @@ export const FileBrowser = ({
             console.log('Method 2: PATCH to trash successful');
             toast({
               title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
-              description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว`,
+              description: `ย้ายไฟล์ "${itemToDelete.name}" ไปถังขยะเรียบร้อยแล้ว`,
             });
             handleRefresh();
             return;
@@ -1104,7 +1188,7 @@ export const FileBrowser = ({
               console.log('Admin Method 1: Attempting files.update with trashed=true...');
               try {
                 const updateResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&supportsTeamDrives=true`,
+                  `https://www.googleapis.com/drive/v3/files/${itemToDelete.id}?supportsAllDrives=true&supportsTeamDrives=true`,
                   {
                     method: "PATCH",
                     headers: {
@@ -1123,7 +1207,7 @@ export const FileBrowser = ({
                   console.log('Admin Method 1 successful: File moved to trash');
                   toast({
                     title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
-                    description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว (Admin method)`,
+                    description: `ย้ายไฟล์ "${itemToDelete.name}" ไปถังขยะเรียบร้อยแล้ว (Admin method)`,
                   });
                   handleRefresh();
                   return;
@@ -1142,7 +1226,7 @@ export const FileBrowser = ({
                 console.log('Current parent for removal:', currentParent);
                 
                 const removeParentResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true&removeParents=${currentParent}`,
+                  `https://www.googleapis.com/drive/v3/files/${itemToDelete.id}?supportsAllDrives=true&removeParents=${currentParent}`,
                   {
                     method: "PATCH",
                     headers: {
@@ -1161,7 +1245,7 @@ export const FileBrowser = ({
                   console.log('Admin Method 2 successful: Parent removed and file trashed');
                   toast({
                     title: "ย้ายไฟล์ไปถังขยะสำเร็จ",
-                    description: `ย้ายไฟล์ "${file.name}" ไปถังขยะเรียบร้อยแล้ว (Admin advanced method)`,
+                    description: `ย้ายไฟล์ "${itemToDelete.name}" ไปถังขยะเรียบร้อยแล้ว (Admin advanced method)`,
                   });
                   handleRefresh();
                   return;
@@ -1177,7 +1261,7 @@ export const FileBrowser = ({
               console.log('Admin Method 3: Checking file permissions...');
               try {
                 const permResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${file.id}/permissions?supportsAllDrives=true`,
+                  `https://www.googleapis.com/drive/v3/files/${itemToDelete.id}/permissions?supportsAllDrives=true`,
                   {
                     method: "GET",
                     headers: {
@@ -1199,7 +1283,7 @@ export const FileBrowser = ({
                     console.log('No write access detected for file');
                     toast({
                       title: "ข้อมูลสำหรับ Admin",
-                      description: `ไฟล์ "${file.name}" ไม่มีสิทธิ์เขียน กรุณาขอให้เจ้าของไฟล์เพิ่มสิทธิ์ Editor`,
+                      description: `ไฟล์ "${itemToDelete.name}" ไม่มีสิทธิ์เขียน กรุณาขอให้เจ้าของไฟล์เพิ่มสิทธิ์ Editor`,
                       variant: "destructive",
                     });
                     return;
@@ -1214,7 +1298,7 @@ export const FileBrowser = ({
               // All admin methods failed - provide detailed guidance
               toast({
                 title: "ข้อมูลสำหรับ Admin",
-                description: `ไฟล์ "${file.name}" ต้องการสิทธิ์พิเศษ:
+                description: `ไฟล์ "${itemToDelete.name}" ต้องการสิทธิ์พิเศษ:
 1. ขอให้เจ้าของไฟล์เพิ่มคุณเป็น Editor หรือ Owner
 2. ตรวจสอบว่าไฟล์อยู่ใน Shared Drive ที่คุณมีสิทธิ์
 3. ลองจัดการใน Google Drive โดยตรง
@@ -1255,7 +1339,7 @@ export const FileBrowser = ({
       if (deleteSuccessful) {
         toast({
           title: "ลบไฟล์สำเร็จ",
-          description: `ลบไฟล์ "${file.name}" เรียบร้อยแล้ว`,
+          description: `ลบไฟล์ "${itemToDelete.name}" เรียบร้อยแล้ว`,
         });
 
         handleRefresh();
@@ -1267,6 +1351,8 @@ export const FileBrowser = ({
           error instanceof Error ? error.message : "ไม่สามารถลบไฟล์ได้",
         variant: "destructive",
       });
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -1443,17 +1529,22 @@ export const FileBrowser = ({
       return;
     }
 
-    // Add confirmation dialog for folder deletion
-    if (!window.confirm(`คุณต้องการลบโฟลเดอร์ "${folderName}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`)) {
-      return;
-    }
+    // Show confirmation dialog for folder deletion
+    setItemToDelete(folderToDelete);
+    setShowDeleteFolderDialog(true);
+  };
 
+  const confirmDeleteFolder = async () => {
+    if (!itemToDelete) return;
+    
     try {
-      await deleteFolder(folderToDelete.id);
+      await deleteFolder(itemToDelete.id);
       handleRefresh();
     } catch (error) {
       // Error is already handled and shown in deleteFolder function
       // No need to show additional toast here
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -1853,6 +1944,39 @@ export const FileBrowser = ({
         onShare={handleShareFolder}
         folderName={selectedFolder?.name || ""}
       />
+
+      {/* Only render dialogs when we have valid item data and dialog should be open */}
+      {itemToDelete && itemToDelete.name && (
+        <>
+          <ConfirmationDialog
+            isOpen={showDeleteFolderDialog && itemToDelete.type === "folder"}
+            onClose={() => {
+              setShowDeleteFolderDialog(false);
+              setItemToDelete(null);
+            }}
+            onConfirm={confirmDeleteFolder}
+            title="ยืนยันการลบโฟลเดอร์"
+            description={`คุณต้องการลบโฟลเดอร์ "${itemToDelete.name}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`}
+            confirmText="ลบโฟลเดอร์"
+            cancelText="ยกเลิก"
+            isDestructive={true}
+          />
+
+          <ConfirmationDialog
+            isOpen={showDeleteFileDialog && itemToDelete.type !== "folder"}
+            onClose={() => {
+              setShowDeleteFileDialog(false);
+              setItemToDelete(null);
+            }}
+            onConfirm={confirmDeleteFile}
+            title="ยืนยันการลบไฟล์"
+            description={`คุณต้องการลบไฟล์ "${itemToDelete.name}" ใช่หรือไม่?`}
+            confirmText="ลบไฟล์"
+            cancelText="ยกเลิก"
+            isDestructive={true}
+          />
+        </>
+      )}
     </Card>
   );
 };
