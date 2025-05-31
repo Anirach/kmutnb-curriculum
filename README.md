@@ -1,4 +1,30 @@
-# Welcome to your Lovable project
+# KMUTNB Curriculum System
+
+This project is a web-based platform for managing and sharing curriculum documents and resources at KMUTNB. It integrates with Google Drive for secure file storage and sharing, and provides role-based access for administrators, editors, and viewers.
+
+## Features
+- Google Drive integration for file and folder management
+- Role-based access control (Admin, Editor, Viewer)
+- Upload, download, rename, and delete files and folders
+- Search functionality across folders and subfolders
+- User management for administrators
+- Responsive dashboard interface
+
+## Documentation
+- User and admin manuals are available in the `Document/UserDoc` folder.
+
+## Requirements
+- Node.js
+- Google OAuth credentials (Client ID/Secret) with appropriate Drive API scopes
+
+## Getting Started
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Configure Google OAuth credentials
+4. build the project: `npm run build`
+5. Start the development server: `npm sart`
+
+For more details, see the manuals in `Document/UserDoc`.
 
 ## Project info
 
