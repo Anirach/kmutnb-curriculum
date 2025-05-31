@@ -75,13 +75,21 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     onClose();
   };
 
+  // Ensure description is never empty to avoid accessibility warnings
+  const safeDescription = description || "กรุณายืนยันการดำเนินการ";
+  // Create unique ID based on the dialog type to avoid conflicts
+  const dialogId = React.useMemo(() => 
+    `confirmation-dialog-${title.replace(/\s+/g, '-').toLowerCase()}-${Math.random().toString(36).substr(2, 9)}`,
+    [title]
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent aria-describedby="confirmation-dialog-description">
+      <DialogContent aria-describedby={dialogId}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription id="confirmation-dialog-description">
-            {description}
+          <DialogDescription id={dialogId}>
+            {safeDescription}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -158,12 +166,18 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     }
   };
 
+  // Create unique ID for this dialog
+  const shareDialogId = React.useMemo(() => 
+    `share-folder-dialog-${Math.random().toString(36).substr(2, 9)}`,
+    []
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent aria-describedby="share-folder-description">
+      <DialogContent aria-describedby={shareDialogId}>
         <DialogHeader>
           <DialogTitle>แชร์โฟลเดอร์ "{folderName}"</DialogTitle>
-          <DialogDescription id="share-folder-description">
+          <DialogDescription id={shareDialogId}>
             เพิ่มผู้ใช้งานอื่นให้สามารถเข้าถึงโฟลเดอร์นี้ได้
           </DialogDescription>
         </DialogHeader>
@@ -745,6 +759,8 @@ export const FileBrowser = ({
     }
 
     try {
+      console.log(`Attempting to delete folder with ID: ${folderId}`);
+      
       // Add support for shared drives and ensure proper permissions
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${folderId}?supportsAllDrives=true&supportsTeamDrives=true`,
@@ -756,8 +772,11 @@ export const FileBrowser = ({
         }
       );
 
+      console.log(`Delete folder response status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
+        console.log('Delete folder error data:', errorData);
 
         // Handle 401 Unauthorized - token expired
         if (response.status === 401) {
@@ -1352,6 +1371,8 @@ export const FileBrowser = ({
         variant: "destructive",
       });
     } finally {
+      // Clean up all dialog states properly
+      setShowDeleteFileDialog(false);
       setItemToDelete(null);
     }
   };
@@ -1544,6 +1565,8 @@ export const FileBrowser = ({
       // Error is already handled and shown in deleteFolder function
       // No need to show additional toast here
     } finally {
+      // Clean up all dialog states properly
+      setShowDeleteFolderDialog(false);
       setItemToDelete(null);
     }
   };
@@ -1946,61 +1969,43 @@ export const FileBrowser = ({
       />
 
       {/* Enhanced Conditional Rendering: Only render dialogs with complete, validated data */}
-      {(() => {
-        // Validate that we have a complete item to delete with all required properties
-        const isValidItem = itemToDelete && 
-                           itemToDelete.id && 
-                           itemToDelete.name && 
-                           itemToDelete.type;
-        
-        if (!isValidItem) return null;
+      {itemToDelete && itemToDelete.id && itemToDelete.name && itemToDelete.type && (
+        <>
+          {/* Folder Deletion Dialog */}
+          {showDeleteFolderDialog && itemToDelete.type === "folder" && (
+            <ConfirmationDialog
+              isOpen={showDeleteFolderDialog}
+              onClose={() => {
+                setShowDeleteFolderDialog(false);
+                setItemToDelete(null);
+              }}
+              onConfirm={confirmDeleteFolder}
+              title="ยืนยันการลบโฟลเดอร์"
+              description={`คุณต้องการลบโฟลเดอร์ "${itemToDelete.name}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`}
+              confirmText="ลบโฟลเดอร์"
+              cancelText="ยกเลิก"
+              isDestructive={true}
+            />
+          )}
 
-        // Determine which dialog should be shown based on item type and dialog state
-        const shouldShowFolderDialog = showDeleteFolderDialog && itemToDelete.type === "folder";
-        const shouldShowFileDialog = showDeleteFileDialog && itemToDelete.type !== "folder";
-
-        // Only render if at least one dialog should be shown
-        if (!shouldShowFolderDialog && !shouldShowFileDialog) return null;
-
-        // Common close handler to ensure clean state reset
-        const handleDialogClose = () => {
-          setShowDeleteFolderDialog(false);
-          setShowDeleteFileDialog(false);
-          setItemToDelete(null);
-        };
-
-        return (
-          <>
-            {/* Folder Deletion Dialog */}
-            {shouldShowFolderDialog && (
-              <ConfirmationDialog
-                isOpen={true}
-                onClose={handleDialogClose}
-                onConfirm={confirmDeleteFolder}
-                title="ยืนยันการลบโฟลเดอร์"
-                description={`คุณต้องการลบโฟลเดอร์ "${itemToDelete.name}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`}
-                confirmText="ลบโฟลเดอร์"
-                cancelText="ยกเลิก"
-                isDestructive={true}
-              />
-            )}
-
-            {/* File Deletion Dialog */}
-            {shouldShowFileDialog && (
-              <ConfirmationDialog
-                isOpen={true}
-                onClose={handleDialogClose}
-                onConfirm={confirmDeleteFile}
-                title="ยืนยันการลบไฟล์"
-                description={`คุณต้องการลบไฟล์ "${itemToDelete.name}" ใช่หรือไม่?`}
-                confirmText="ลบไฟล์"
-                cancelText="ยกเลิก"
-                isDestructive={true}
-              />
-            )}
-          </>
-        );
-      })()}
+          {/* File Deletion Dialog */}
+          {showDeleteFileDialog && itemToDelete.type !== "folder" && (
+            <ConfirmationDialog
+              isOpen={showDeleteFileDialog}
+              onClose={() => {
+                setShowDeleteFileDialog(false);
+                setItemToDelete(null);
+              }}
+              onConfirm={confirmDeleteFile}
+              title="ยืนยันการลบไฟล์"
+              description={`คุณต้องการลบไฟล์ "${itemToDelete.name}" ใช่หรือไม่?`}
+              confirmText="ลบไฟล์"
+              cancelText="ยกเลิก"
+              isDestructive={true}
+            />
+          )}
+        </>
+      )}
     </Card>
   );
 };

@@ -43,7 +43,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, UserPermission> = {
     permissions: {
       view: true,
       upload: true,
-      delete: false,
+      delete: true,
       rename: true,
     },
   },

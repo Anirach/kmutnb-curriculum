@@ -39,6 +39,17 @@ export const FolderActions = forwardRef<FolderActionsRef, FolderActionsProps>(
     // ตามที่เห็นใน FileBrowser ใช้ hasPermission('upload') ซึ่งก็พอใช้ได้
     const canManageFolders = hasPermission('upload'); 
 
+    // Create unique IDs for dialogs
+    const createDialogId = React.useMemo(() => 
+      `create-folder-dialog-${Math.random().toString(36).substr(2, 9)}`,
+      []
+    );
+    
+    const renameDialogId = React.useMemo(() => 
+      `rename-folder-dialog-${Math.random().toString(36).substr(2, 9)}`,
+      []
+    ); 
+
     useImperativeHandle(ref, () => ({
       openRenameDialog: (folderName: string) => {
         setSelectedFolder(folderName);
@@ -173,10 +184,10 @@ export const FolderActions = forwardRef<FolderActionsRef, FolderActionsProps>(
                 New Folder
               </Button>
             </DialogTrigger>
-            <DialogContent aria-describedby="create-folder-description">
+            <DialogContent aria-describedby={createDialogId}>
               <DialogHeader>
                 <DialogTitle>สร้างโฟลเดอร์ใหม่</DialogTitle>
-                <DialogDescription id="create-folder-description">
+                <DialogDescription id={createDialogId}>
                   กรอกชื่อโฟลเดอร์ที่ต้องการสร้าง
                 </DialogDescription>
               </DialogHeader>
@@ -210,10 +221,10 @@ export const FolderActions = forwardRef<FolderActionsRef, FolderActionsProps>(
         {/* Rename Dialog */}
         {hasPermission('rename') && ( // ควรแสดง dialog ถ้ามีสิทธิ์ rename
             <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-            <DialogContent aria-describedby="rename-folder-description">
+            <DialogContent aria-describedby={renameDialogId}>
               <DialogHeader>
                 <DialogTitle>Rename Folder</DialogTitle>
-                <DialogDescription id="rename-folder-description">
+                <DialogDescription id={renameDialogId}>
                   Enter a new name for "{selectedFolder}".
                 </DialogDescription>
               </DialogHeader>
