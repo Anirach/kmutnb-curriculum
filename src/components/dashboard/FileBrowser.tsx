@@ -1945,38 +1945,62 @@ export const FileBrowser = ({
         folderName={selectedFolder?.name || ""}
       />
 
-      {/* Only render dialogs when we have valid item data and dialog should be open */}
-      {itemToDelete && itemToDelete.name && (
-        <>
-          <ConfirmationDialog
-            isOpen={showDeleteFolderDialog && itemToDelete.type === "folder"}
-            onClose={() => {
-              setShowDeleteFolderDialog(false);
-              setItemToDelete(null);
-            }}
-            onConfirm={confirmDeleteFolder}
-            title="ยืนยันการลบโฟลเดอร์"
-            description={`คุณต้องการลบโฟลเดอร์ "${itemToDelete.name}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`}
-            confirmText="ลบโฟลเดอร์"
-            cancelText="ยกเลิก"
-            isDestructive={true}
-          />
+      {/* Enhanced Conditional Rendering: Only render dialogs with complete, validated data */}
+      {(() => {
+        // Validate that we have a complete item to delete with all required properties
+        const isValidItem = itemToDelete && 
+                           itemToDelete.id && 
+                           itemToDelete.name && 
+                           itemToDelete.type;
+        
+        if (!isValidItem) return null;
 
-          <ConfirmationDialog
-            isOpen={showDeleteFileDialog && itemToDelete.type !== "folder"}
-            onClose={() => {
-              setShowDeleteFileDialog(false);
-              setItemToDelete(null);
-            }}
-            onConfirm={confirmDeleteFile}
-            title="ยืนยันการลบไฟล์"
-            description={`คุณต้องการลบไฟล์ "${itemToDelete.name}" ใช่หรือไม่?`}
-            confirmText="ลบไฟล์"
-            cancelText="ยกเลิก"
-            isDestructive={true}
-          />
-        </>
-      )}
+        // Determine which dialog should be shown based on item type and dialog state
+        const shouldShowFolderDialog = showDeleteFolderDialog && itemToDelete.type === "folder";
+        const shouldShowFileDialog = showDeleteFileDialog && itemToDelete.type !== "folder";
+
+        // Only render if at least one dialog should be shown
+        if (!shouldShowFolderDialog && !shouldShowFileDialog) return null;
+
+        // Common close handler to ensure clean state reset
+        const handleDialogClose = () => {
+          setShowDeleteFolderDialog(false);
+          setShowDeleteFileDialog(false);
+          setItemToDelete(null);
+        };
+
+        return (
+          <>
+            {/* Folder Deletion Dialog */}
+            {shouldShowFolderDialog && (
+              <ConfirmationDialog
+                isOpen={true}
+                onClose={handleDialogClose}
+                onConfirm={confirmDeleteFolder}
+                title="ยืนยันการลบโฟลเดอร์"
+                description={`คุณต้องการลบโฟลเดอร์ "${itemToDelete.name}" ใช่หรือไม่?\n\nการลบโฟลเดอร์จะลบไฟล์ทั้งหมดภายในโฟลเดอร์ด้วย`}
+                confirmText="ลบโฟลเดอร์"
+                cancelText="ยกเลิก"
+                isDestructive={true}
+              />
+            )}
+
+            {/* File Deletion Dialog */}
+            {shouldShowFileDialog && (
+              <ConfirmationDialog
+                isOpen={true}
+                onClose={handleDialogClose}
+                onConfirm={confirmDeleteFile}
+                title="ยืนยันการลบไฟล์"
+                description={`คุณต้องการลบไฟล์ "${itemToDelete.name}" ใช่หรือไม่?`}
+                confirmText="ลบไฟล์"
+                cancelText="ยกเลิก"
+                isDestructive={true}
+              />
+            )}
+          </>
+        );
+      })()}
     </Card>
   );
 };
