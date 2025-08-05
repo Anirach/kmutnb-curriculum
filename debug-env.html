@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environment Variables Debug</title>
+</head>
+<body>
+    <h1>Environment Variables Debug</h1>
+    <div id="env-check"></div>
+    
+    <script type="module">
+        const envVars = {
+            'VITE_GOOGLE_CLIENT_ID': import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            'VITE_GOOGLE_CLIENT_SECRET': import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
+            'VITE_GOOGLE_DRIVE_URL': import.meta.env.VITE_GOOGLE_DRIVE_URL,
+            'VITE_GOOGLE_API_KEY': import.meta.env.VITE_GOOGLE_API_KEY
+        };
+        
+        const envCheck = document.getElementById('env-check');
+        let html = '<h2>Environment Variables Status:</h2><ul>';
+        
+        for (const [key, value] of Object.entries(envVars)) {
+            const status = value ? '✅ Loaded' : '❌ Missing';
+            const displayValue = value ? (key.includes('SECRET') ? '[HIDDEN]' : value.substring(0, 20) + '...') : 'undefined';
+            html += `<li><strong>${key}:</strong> ${status} - ${displayValue}</li>`;
+        }
+        
+        html += '</ul>';
+        envCheck.innerHTML = html;
+        
+        console.log('Environment Variables:', envVars);
+    </script>
+</body>
+</html>

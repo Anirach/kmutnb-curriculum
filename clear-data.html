@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear KMUTNB Curriculum Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>KMUTNB Curriculum System - Clear Data</h1>
+    <p>This page will help you clear all stored authentication and configuration data.</p>
+    
+    <button class="button" onclick="clearAllData()">Clear All Data</button>
+    <button class="button" onclick="clearOAuthOnly()">Clear OAuth Data Only</button>
+    <button class="button" onclick="checkCurrentData()">Check Current Data</button>
+    
+    <div id="log"></div>
+    
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += '<div class="log">' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        }
+        
+        function clearAllData() {
+            log('🧹 Starting complete data cleanup...');
+            
+            // All possible keys used by the application
+            const allKeys = [
+                'accessToken', 'refreshToken', 'userEmail', 'userName', 'userPicture', 'userRole',
+                'currentUser', 'clientId', 'clientSecret', 'driveUrl', 'returnPath',
+                'user_data', 'oauth_settings', 'tokens', 'drive_settings'
+            ];
+            
+            let cleared = 0;
+            allKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    cleared++;
+                    log('✅ Removed: ' + key);
+                }
+            });
+            
+            // Clear sessionStorage as well
+            sessionStorage.clear();
+            log('✅ Cleared sessionStorage');
+            
+            // Clear any encrypted storage keys that might exist
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.includes('encrypted_')) {
+                    localStorage.removeItem(key);
+                    log('✅ Removed encrypted key: ' + key);
+                }
+            }
+            
+            log(`🎉 Complete! Cleared ${cleared} items from localStorage.`);
+            log('🔄 Please refresh the page and try logging in again.');
+        }
+        
+        function clearOAuthOnly() {
+            log('🔑 Clearing OAuth data only...');
+            
+            const oauthKeys = ['accessToken', 'refreshToken', 'clientId', 'clientSecret', 'driveUrl', 'returnPath'];
+            let cleared = 0;
+            
+            oauthKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    cleared++;
+                    log('✅ Removed: ' + key);
+                }
+            });
+            
+            log(`🎉 Cleared ${cleared} OAuth items. User data preserved.`);
+        }
+        
+        function checkCurrentData() {
+            log('📊 Checking current stored data...');
+            
+            const keys = Object.keys(localStorage);
+            if (keys.length === 0) {
+                log('✨ No data found in localStorage');
+                return;
+            }
+            
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const displayValue = key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') 
+                    ? '[HIDDEN]' 
+                    : (value && value.length > 50 ? value.substring(0, 50) + '...' : value);
+                log(`📌 ${key}: ${displayValue}`);
+            });
+        }
+        
+        // Auto-check data on load
+        checkCurrentData();
+    </script>
+</body>
+</html>
