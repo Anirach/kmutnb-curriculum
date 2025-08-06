@@ -211,6 +211,7 @@ const AppContent = () => {
     const initializeApp = async () => {
       try {
         setIsInitializing(true);
+        
         // Migrate existing localStorage data to encrypted storage
         EncryptedStorage.migrateExistingData(SENSITIVE_KEYS);
 
@@ -447,16 +448,26 @@ const AppContent = () => {
   );
 
   // จัดการการ render ตามสถานะต่างๆ
+  console.log('Render conditions:', {
+    isLoading,
+    isAuthenticated,
+    user: user ? { email: user.email, role: user.role } : null,
+    pathname: location.pathname
+  });
+  
   if (isLoading) {
+    console.log('Rendering LoadingScreen');
     return <LoadingScreen />;
   }
 
-  // ถ้า authenticate แล้วและมี user ให้แสดง Dashboard
-  if (isAuthenticated && user && location.pathname === '/dashboard') {
+  // ถ้า authenticate แล้วและมี user ให้แสดง Dashboard (ไม่จำเป็นต้องเช็ค pathname)
+  if (isAuthenticated && user) {
+    console.log('Rendering DashboardContent for authenticated user');
     return <DashboardContent />;
   }
 
-  // ถ้ายังไม่ได้ authenticate หรือไม่มี user หรือไม่ได้อยู่ที่ path /dashboard ให้แสดง Landing Page
+  // ถ้ายังไม่ได้ authenticate หรือไม่มี user ให้แสดง Landing Page
+  console.log('Rendering LandingPageContent');
   return <LandingPageContent />;
 };
 

@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { GraduationCap, LogOut, User } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { userService } from '@/services/userService';
 import { encryptedStorage } from '@/services/encryptedStorage';
 
@@ -16,21 +17,86 @@ export const Header = ({
 }) => {
   const { user, setUser } = useUser();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      // Soft logout: clear all sensitive data except refresh token
-      encryptedStorage.clearUserData({ keepRefreshToken: true });
-
-      // ล้างข้อมูลจาก IndexedDB
-      await userService.logout();
+      console.log('Logout button clicked for user:', user?.email);
+      
+      // Check if this is a public user
+      const isPublicUser = user?.email === 'public@curriculum.local';
+      
+      if (isPublicUser) {
+        // For public users, completely clear everything and redirect
+        console.log('Public user logout - clearing all storage including encrypted data');
+        
+        // Clear user from context
+        setUser(null);
+        
+        // Clear all storage completely
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // IMPORTANT: Also clear encrypted storage to prevent auto-login
+        encryptedStorage.clearUserData();
+        
+        // Clear tokens and OAuth settings completely for public logout
+        try {
+          // Clear all encrypted storage keys
+          const keys = ['userData', 'tokens', 'oauthSettings', 'accessToken', 'refreshToken', 'clientId', 'clientSecret', 'driveUrl'];
+          keys.forEach(key => {
+            localStorage.removeItem(`encrypted_${key}`);
+          });
+        } catch (error) {
+          console.log('Error clearing encrypted storage:', error);
+        }
+        
+        console.log('All storage cleared - redirecting to landing page');
+        
+        // Immediate redirect without any delay
+        window.location.href = '/';
+        return;
+      }
+      
+      // For admin users, do the full logout process
+      console.log('Admin user logout - full cleanup');
+      
+      // Clear user from context immediately
       setUser(null);
+      
+      // Get the Google API credentials before clearing everything
+      const { accessToken, refreshToken } = encryptedStorage.getTokens();
+      const { clientId, clientSecret, driveUrl } = encryptedStorage.getOAuthSettings();
+      
+      // Clear all localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Clear all encrypted storage completely
+      encryptedStorage.clearUserData();
+      
+      // Restore only the Google API credentials for future public access
+      if (accessToken && refreshToken) {
+        encryptedStorage.setTokens(accessToken, refreshToken);
+      }
+      if (clientId && clientSecret && driveUrl) {
+        encryptedStorage.setOAuthSettings(clientId, clientSecret, driveUrl);
+      }
+      
+      console.log('Admin data cleared, navigating to home...');
+      
       toast({
         title: "ออกจากระบบสำเร็จ",
         description: "ขอบคุณที่ใช้งานระบบ",
       });
-      window.location.href = '/';
+      
+      // Force a complete page reload to reset all state
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+      
     } catch (error) {
+      console.error('Logout error:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถออกจากระบบได้ กรุณาลองใหม่อีกครั้ง",

@@ -694,11 +694,28 @@ export const Dashboard = () => {
           setDriveUrl(storedDriveUrl);
           setInputUrl(storedDriveUrl);
         }
-        if (storedAccessToken) setAccessToken(storedAccessToken);
-        if (storedRefreshToken) setRefreshToken(storedRefreshToken);
-        if (storedEmail) setUserEmail(storedEmail);
-        if (storedEmail) {
-          setUserRole(adminEmails.includes(storedEmail.toLowerCase()) ? 'Admin' : 'Viewer');
+        
+        // For public users, use admin credentials for read-only access
+        if (user?.email === 'public@curriculum.local' && user?.role === 'Viewer') {
+          console.log('Setting up public user with admin credentials for read-only access');
+          if (storedAccessToken) {
+            setAccessToken(storedAccessToken);
+            console.log('Public user now has access token:', !!storedAccessToken);
+          }
+          if (storedRefreshToken) setRefreshToken(storedRefreshToken);
+          if (storedEmail) setUserEmail(storedEmail);
+          if (storedDriveUrl) {
+            console.log('Public user now has drive URL:', storedDriveUrl);
+          }
+          setUserRole('Viewer'); // Force viewer role for public users
+        } else {
+          // Normal user logic
+          if (storedAccessToken) setAccessToken(storedAccessToken);
+          if (storedRefreshToken) setRefreshToken(storedRefreshToken);
+          if (storedEmail) setUserEmail(storedEmail);
+          if (storedEmail) {
+            setUserRole(adminEmails.includes(storedEmail.toLowerCase()) ? 'Admin' : 'Viewer');
+          }
         }
 
         // Clean up URL params if they exist (but don't process them - CurriculumApp handles OAuth)
@@ -709,10 +726,11 @@ export const Dashboard = () => {
 
         // If we have stored tokens, validate them
         if (storedAccessToken) {
-          const storedRole = storedEmail ? (adminEmails.includes(storedEmail.toLowerCase()) ? 'Admin' : 'Viewer') : null;
+          const storedRole = user?.email === 'public@curriculum.local' ? 'Viewer' : 
+                            (storedEmail ? (adminEmails.includes(storedEmail.toLowerCase()) ? 'Admin' : 'Viewer') : null);
           const params: ValidateAccessTokenParams = {
             token: storedAccessToken,
-            email: storedEmail,
+            email: user?.email === 'public@curriculum.local' ? 'public@curriculum.local' : storedEmail,
             role: storedRole
           };
           await validateAccessToken(params);
@@ -724,7 +742,7 @@ export const Dashboard = () => {
     };
 
     loadUserSessionFromStorage();
-  }, [validateAccessToken, setUser, toast, clientId, clientSecret, driveUrl]);
+  }, [validateAccessToken, setUser, toast, clientId, clientSecret, driveUrl, user]);
 
   useEffect(() => {
     const match = driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/);

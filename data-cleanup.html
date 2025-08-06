@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear All KMUTNB Curriculum Data</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .button { 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .button:hover { background: #45a049; }
+        .button.danger { background: #f44336; }
+        .button.danger:hover { background: #d32f2f; }
+        .log { 
+            background: rgba(255, 255, 255, 0.1); 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-left: 4px solid #4CAF50; 
+            border-radius: 5px;
+        }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border: 2px solid #ff9800;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 KMUTNB Curriculum System - Data Cleanup</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This will completely clear all stored authentication data and settings. You'll need to re-configure Google OAuth settings after clearing.
+        </div>
+        
+        <button class="button danger" onclick="clearAllData()">🗑️ Clear All Data (Complete Reset)</button>
+        <button class="button" onclick="clearUserDataOnly()">👤 Clear User Data Only</button>
+        <button class="button" onclick="checkCurrentData()">📊 Check Current Data</button>
+        <button class="button" onclick="clearSpecificData()">🎯 Clear Specific Data</button>
+        
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="log">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearAllData() {
+            log('🔄 Starting complete data cleanup...');
+            
+            // Clear all localStorage
+            const localStorageKeys = Object.keys(localStorage);
+            log(`Found ${localStorageKeys.length} localStorage items`);
+            
+            localStorageKeys.forEach(key => {
+                log(`Removing localStorage: ${key}`);
+                localStorage.removeItem(key);
+            });
+            
+            // Clear all sessionStorage
+            const sessionStorageKeys = Object.keys(sessionStorage);
+            log(`Found ${sessionStorageKeys.length} sessionStorage items`);
+            
+            sessionStorageKeys.forEach(key => {
+                log(`Removing sessionStorage: ${key}`);
+                sessionStorage.removeItem(key);
+            });
+            
+            // Clear cookies (if any)
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            
+            log('✅ Complete data cleanup finished!');
+            log('🔄 Reloading page in 2 seconds...');
+            
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+
+        function clearUserDataOnly() {
+            log('🔄 Clearing user data only...');
+            
+            const userKeys = [
+                'currentUser', 'accessToken', 'refreshToken', 'userEmail', 
+                'userName', 'userPicture', 'userRole', 'isAuthenticated',
+                'encrypted_userData', 'encrypted_tokens'
+            ];
+            
+            userKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    log(`Removing: ${key}`);
+                    localStorage.removeItem(key);
+                }
+            });
+            
+            log('✅ User data cleared!');
+        }
+
+        function checkCurrentData() {
+            log('📊 Checking current stored data...');
+            
+            log('--- localStorage Data ---');
+            if (localStorage.length === 0) {
+                log('No localStorage data found');
+            } else {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    const value = localStorage.getItem(key);
+                    log(`${key}: ${value ? value.substring(0, 100) : 'null'}${value && value.length > 100 ? '...' : ''}`);
+                }
+            }
+            
+            log('--- sessionStorage Data ---');
+            if (sessionStorage.length === 0) {
+                log('No sessionStorage data found');
+            } else {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    const value = sessionStorage.getItem(key);
+                    log(`${key}: ${value ? value.substring(0, 100) : 'null'}${value && value.length > 100 ? '...' : ''}`);
+                }
+            }
+        }
+
+        function clearSpecificData() {
+            log('🎯 Clearing specific authentication data...');
+            
+            const specificKeys = [
+                // User authentication
+                'currentUser',
+                'accessToken', 
+                'refreshToken',
+                'userEmail',
+                'userName',
+                'userPicture', 
+                'userRole',
+                'isAuthenticated',
+                
+                // Encrypted storage keys
+                'encrypted_userData',
+                'encrypted_tokens',
+                'encrypted_oauthSettings',
+                'encrypted_accessToken',
+                'encrypted_refreshToken',
+                'encrypted_clientId',
+                'encrypted_clientSecret',
+                'encrypted_driveUrl',
+                
+                // OAuth settings (keep these if you want to preserve configuration)
+                // 'clientId',
+                // 'clientSecret', 
+                // 'driveUrl'
+            ];
+            
+            let clearedCount = 0;
+            specificKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    log(`✅ Clearing: ${key}`);
+                    localStorage.removeItem(key);
+                    clearedCount++;
+                } else {
+                    log(`ℹ️ Not found: ${key}`);
+                }
+            });
+            
+            // Also clear sessionStorage
+            sessionStorage.clear();
+            log('✅ SessionStorage cleared');
+            
+            log(`🎯 Cleared ${clearedCount} specific items`);
+            log('🔄 Refresh the page to see if the landing page shows correctly');
+        }
+
+        // Auto-check data on load
+        window.onload = () => {
+            log('🚀 Data cleanup utility loaded');
+            log('Click "Check Current Data" to see what\'s stored in your browser');
+        };
+    </script>
+</body>
+</html>
