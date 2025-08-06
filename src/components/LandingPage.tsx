@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GraduationCap, FileText, Shield, Users, ArrowRight, Eye, Lock } from 'lucide-react';
+import { GraduationCap, FileText, Shield, Users, ArrowRight, Lock } from 'lucide-react';
 import { useAuthActions } from '@/contexts/AuthActionsContext';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
@@ -25,38 +25,6 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
     }
   };
 
-  const handlePublicAccess = async () => {
-    console.log('Public access button clicked');
-    
-    try {
-      // Only clear current user data, keep admin credentials for public access
-      localStorage.removeItem('currentUser');
-      console.log('Cleared current user data');
-      
-      // Set up a public user with Viewer role (read-only privileges)
-      const publicUser = {
-        id: 'public-user',
-        email: 'public@curriculum.local',
-        name: 'Public User',
-        role: 'Viewer' as const,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      console.log('Created public user:', publicUser);
-      
-      // Set the user in context and localStorage
-      setUser(publicUser);
-      localStorage.setItem('currentUser', JSON.stringify(publicUser));
-      
-      console.log('Set user data, context should update now');
-      console.log('Authentication flow complete - Dashboard should render with admin credentials');
-      
-    } catch (error) {
-      console.error('Error in handlePublicAccess:', error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Hero Section */}
@@ -74,15 +42,7 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
           </p>
           
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button 
-              onClick={handlePublicAccess}
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              <Eye className="w-5 h-5 mr-2" />
-              สืบค้นข้อมูลหลักสูตร
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
+          <div className="flex justify-center items-center">
             <Button 
               onClick={handleLoginClick}
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
@@ -99,7 +59,7 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
           <Card className="text-center shadow-lg hover:shadow-xl transition-shadow duration-200">
             <CardHeader>
               <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <Eye className="w-6 h-6 text-blue-600" />
+                <FileText className="w-6 h-6 text-blue-600" />
               </div>
               <CardTitle className="text-lg mb-2">การใช้งาน</CardTitle>
             </CardHeader>

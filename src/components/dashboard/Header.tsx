@@ -58,8 +58,8 @@ export const Header = ({
         return;
       }
       
-      // For admin users, do the full logout process
-      console.log('Admin user logout - full cleanup');
+            // For admin users, do the full logout process with immediate redirect
+      console.log('Admin user logout - full cleanup and immediate redirect');
       
       // Clear user from context immediately
       setUser(null);
@@ -83,17 +83,20 @@ export const Header = ({
         encryptedStorage.setOAuthSettings(clientId, clientSecret, driveUrl);
       }
       
-      console.log('Admin data cleared, navigating to home...');
+      // Set logout flag AFTER clearing everything to prevent immediate auto-login
+      localStorage.setItem('justLoggedOut', 'true');
+      console.log('Set justLoggedOut flag to prevent auto-login');
       
+      console.log('Admin data cleared, immediate redirect to landing page');
+      
+      // Show brief success message
       toast({
         title: "ออกจากระบบสำเร็จ",
         description: "ขอบคุณที่ใช้งานระบบ",
       });
       
-      // Force a complete page reload to reset all state
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      // Immediate redirect to prevent getting stuck in loading state
+      window.location.href = '/';
       
     } catch (error) {
       console.error('Logout error:', error);

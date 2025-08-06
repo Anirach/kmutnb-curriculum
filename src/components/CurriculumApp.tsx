@@ -228,11 +228,33 @@ const AppContent = () => {
             }
           }
         }
-        // If we have user data and tokens, set user state immediately
-        const { refreshToken, accessToken } = encryptedStorage.getTokens();
-        if (userData && refreshToken) {
-          setUser({ ...userData, role: userData.role as UserRole });
-          setIsAuthenticated(true);
+        
+        // Check if user just logged out - if so, don't auto-login
+        const justLoggedOut = localStorage.getItem('justLoggedOut');
+        if (justLoggedOut) {
+          console.log('User just logged out - skipping auto-login and all token checks');
+          localStorage.removeItem('justLoggedOut');
+          // Clear any existing user state to ensure landing page shows
+          setUser(null);
+          setIsAuthenticated(false);
+          clearTokenRefreshInterval();
+          
+          // Force navigation to landing page if we're on dashboard
+          if (location.pathname === '/dashboard') {
+            navigate('/');
+          }
+          
+          // Exit early - don't check tokens or continue initialization
+          setIsLoading(false);
+          setIsInitializing(false);
+          return;
+        } else {
+          // If we have user data and tokens, set user state immediately (normal auto-login)
+          const { refreshToken, accessToken } = encryptedStorage.getTokens();
+          if (userData && refreshToken) {
+            setUser({ ...userData, role: userData.role as UserRole });
+            setIsAuthenticated(true);
+          }
         }
 
         // Clear old cached user data to ensure new name logic takes effect
