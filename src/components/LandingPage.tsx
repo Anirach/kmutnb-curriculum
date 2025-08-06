@@ -48,7 +48,7 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Lock className="w-5 h-5 mr-2" />
-              Admin Login
+              สืบค้นข้อมูลหลักสูตร
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
