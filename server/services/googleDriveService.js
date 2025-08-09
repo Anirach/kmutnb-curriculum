@@ -77,36 +77,142 @@ class GoogleDriveService {
     try {
       const targetFolderId = folderId || this.folderId;
       
-      console.log(`🔍 Searching for "${query}" in folder: ${targetFolderId}`);
+      console.log(`🔍 Starting recursive search for "${query}" in folder: ${targetFolderId}`);
 
-      // Search within the specified folder
-      const searchQuery = `name contains '${query}' and '${targetFolderId}' in parents and trashed=false`;
+      // Use recursive search to find all files and folders in subfolders
+      const allResults = await this.searchFilesRecursive(query, targetFolderId);
+      
+      console.log(`🔍 Found ${allResults.length} total items matching "${query}" (including subfolders)`);
 
-      const response = await this.drive.files.list({
-        q: searchQuery,
-        fields: 'files(id,name,mimeType,parents,webViewLink,webContentLink,size,modifiedTime,thumbnailLink)',
-        orderBy: 'folder,name'
-      });
-
-      const files = response.data.files || [];
-      console.log(`🔍 Found ${files.length} items matching "${query}"`);
-
-      return files.map(file => ({
-        id: file.id,
-        name: file.name,
-        mimeType: file.mimeType,
-        parents: file.parents,
-        webViewLink: file.webViewLink,
-        webContentLink: file.webContentLink,
-        size: file.size,
-        modifiedTime: file.modifiedTime,
-        thumbnailLink: file.thumbnailLink,
-        isFolder: file.mimeType === 'application/vnd.google-apps.folder'
-      }));
+      return allResults;
 
     } catch (error) {
       console.error('❌ Error searching files:', error.message);
       throw new Error(`Failed to search files: ${error.message}`);
+    }
+  }
+
+  async searchFilesRecursive(query, folderId, depth = 0) {
+    const maxDepth = 8; // Limit depth for performance
+    if (depth > maxDepth) {
+      console.warn(`⚠️ Maximum search depth (${maxDepth}) reached for folder ${folderId}`);
+      return [];
+    }
+
+    const indent = '  '.repeat(depth);
+    console.log(`${indent}🔍 Searching in folder: ${folderId} (depth: ${depth})`);
+
+    let allResults = [];
+
+    try {
+      // Search for both files AND folders matching the query in parallel
+      const [fileResponse, matchingFolderResponse, allFoldersResponse] = await Promise.all([
+        // Search for files
+        this.drive.files.list({
+          q: `name contains '${query}' and '${folderId}' in parents and trashed=false and mimeType != 'application/vnd.google-apps.folder'`,
+          fields: 'files(id,name,mimeType,parents,webViewLink,webContentLink,size,modifiedTime,thumbnailLink)',
+          orderBy: 'name'
+        }),
+        // Search for folders that match the query
+        this.drive.files.list({
+          q: `name contains '${query}' and '${folderId}' in parents and trashed=false and mimeType = 'application/vnd.google-apps.folder'`,
+          fields: 'files(id,name,mimeType,parents,webViewLink,webContentLink,modifiedTime,thumbnailLink)',
+          orderBy: 'name'
+        }),
+        // Get all folders to recurse into
+        this.drive.files.list({
+          q: `'${folderId}' in parents and trashed=false and mimeType = 'application/vnd.google-apps.folder'`,
+          fields: 'files(id,name)',
+          orderBy: 'name'
+        })
+      ]);
+
+      const files = fileResponse.data.files || [];
+      const matchingFolders = matchingFolderResponse.data.files || [];
+      const allFolders = allFoldersResponse.data.files || [];
+
+      console.log(`${indent}� Found ${files.length} files, ${matchingFolders.length} matching folders`);
+
+      // Get folder path once for performance
+      const folderPath = folderId !== this.folderId ? await this.buildFilePath(folderId) : '/';
+
+      // Add found files to results
+      for (const file of files) {
+        allResults.push({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          parents: file.parents,
+          webViewLink: file.webViewLink,
+          webContentLink: file.webContentLink,
+          size: file.size,
+          modifiedTime: file.modifiedTime,
+          thumbnailLink: file.thumbnailLink,
+          isFolder: false,
+          path: folderPath
+        });
+      }
+
+      // Add found folders to results
+      for (const folder of matchingFolders) {
+        allResults.push({
+          id: folder.id,
+          name: folder.name,
+          mimeType: folder.mimeType,
+          parents: folder.parents,
+          webViewLink: folder.webViewLink,
+          webContentLink: folder.webContentLink,
+          modifiedTime: folder.modifiedTime,
+          thumbnailLink: folder.thumbnailLink,
+          isFolder: true,
+          path: folderPath
+        });
+      }
+
+      // Process subfolders in batches for better performance
+      const batchSize = 3;
+      for (let i = 0; i < allFolders.length; i += batchSize) {
+        const batch = allFolders.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(folder => this.searchFilesRecursive(query, folder.id, depth + 1))
+        );
+        
+        for (const subResults of batchResults) {
+          allResults.push(...subResults);
+        }
+      }
+
+    } catch (error) {
+      console.error(`${indent}❌ Error searching in folder ${folderId}:`, error.message);
+      // Continue with other folders even if one fails
+    }
+
+    return allResults;
+  }
+
+  // Helper method to build file path for better context
+  async buildFilePath(folderId) {
+    if (!folderId || folderId === this.folderId) {
+      return '/';
+    }
+
+    try {
+      const folder = await this.drive.files.get({
+        fileId: folderId,
+        fields: 'name,parents'
+      });
+
+      const parentPath = folder.data.parents?.[0] 
+        ? await this.buildFilePath(folder.data.parents[0])
+        : '/';
+
+      return parentPath === '/' 
+        ? `/${folder.data.name}`
+        : `${parentPath}/${folder.data.name}`;
+        
+    } catch (error) {
+      console.error('Error building file path:', error.message);
+      return '/unknown';
     }
   }
 

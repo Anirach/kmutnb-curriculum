@@ -164,6 +164,12 @@ export const PublicFileBrowser: React.FC<PublicFileBrowserProps> = ({
                           </p>
                           <p className="text-sm text-gray-500">
                             {file.lastModified ? formatDate(file.lastModified) : 'ไม่ระบุวันที่'}
+                            {((Array.isArray(file.path) && file.path.length > 0) || 
+                              (typeof file.path === 'string' && file.path !== '/')) && (
+                              <span className="block text-xs text-blue-600 mt-1">
+                                📁 {Array.isArray(file.path) ? file.path.join(' / ') : file.path}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -182,6 +188,12 @@ export const PublicFileBrowser: React.FC<PublicFileBrowserProps> = ({
                           </p>
                           <p className="text-sm text-gray-500">
                             📊 {file.size && formatFileSize(file.size)} • {file.lastModified ? formatDate(file.lastModified) : 'ไม่ระบุวันที่'}
+                            {((Array.isArray(file.path) && file.path.length > 0) || 
+                              (typeof file.path === 'string' && file.path !== '/')) && (
+                              <span className="block text-xs text-blue-600 mt-1">
+                                📁 {Array.isArray(file.path) ? file.path.join(' / ') : file.path}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
