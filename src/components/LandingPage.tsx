@@ -16,6 +16,15 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
   const { setUser } = useUser();
   const navigate = useNavigate();
 
+  const handlePublicAccessClick = async () => {
+    try {
+      // Navigate to public dashboard
+      navigate('/public-dashboard');
+    } catch (error) {
+      console.error('Error accessing public dashboard:', error);
+    }
+  };
+
   const handleLoginClick = async () => {
     try {
       await handleGoogleLogin();
@@ -42,13 +51,21 @@ export const LandingPage = ({ onLoginClick }: LandingPageProps) => {
           </p>
           
           {/* Action Buttons */}
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center gap-4">
+            <Button 
+              onClick={handlePublicAccessClick}
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              สืบค้นข้อมูลหลักสูตร
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
             <Button 
               onClick={handleLoginClick}
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Lock className="w-5 h-5 mr-2" />
-              สืบค้นข้อมูลหลักสูตร
+              Admin Login
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
